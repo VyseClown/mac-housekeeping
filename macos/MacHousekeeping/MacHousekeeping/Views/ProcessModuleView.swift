@@ -19,20 +19,45 @@ struct ProcessModuleView: View {
     private var list: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
-                Text("Xcode Simulators")
-                    .font(.headline)
-                    .foregroundStyle(Chrome.text)
-                ForEach(snapshot.simulators) { device in
-                    SimulatorRow(device: device)
-                }
+                if snapshot.processes.isEmpty && snapshot.simulators.isEmpty {
+                    EmptyStateView(
+                        title: model.pendingModules.contains(.processes)
+                            ? "Scanning processes"
+                            : "No mapped developer processes",
+                        detail: model.pendingModules.contains(.processes)
+                            ? "ps and simctl run beside leftovers and worktrees. This tab paints when either finishes."
+                            : "Simulator, Xcode, leftover captures, and holders of cleanup paths would show here."
+                    )
+                } else {
+                    Text("Xcode Simulators")
+                        .font(.headline)
+                        .foregroundStyle(Chrome.text)
+                    if snapshot.simulators.isEmpty {
+                        Text(model.pendingModules.contains(.processes)
+                             ? "Simulator list still collecting."
+                             : "No available simulators.")
+                            .font(.caption)
+                            .foregroundStyle(Chrome.muted)
+                    }
+                    ForEach(snapshot.simulators) { device in
+                        SimulatorRow(device: device)
+                    }
 
-                Text("Processes")
-                    .font(.headline)
-                    .foregroundStyle(Chrome.text)
-                    .padding(.top, 8)
-                ForEach(snapshot.processes) { process in
-                    ProcessRow(process: process) {
-                        model.focus.processID = process.pid
+                    Text("Processes")
+                        .font(.headline)
+                        .foregroundStyle(Chrome.text)
+                        .padding(.top, 8)
+                    if snapshot.processes.isEmpty {
+                        Text(model.pendingModules.contains(.processes)
+                             ? "Process list still collecting."
+                             : "No mapped developer processes.")
+                            .font(.caption)
+                            .foregroundStyle(Chrome.muted)
+                    }
+                    ForEach(snapshot.processes) { process in
+                        ProcessRow(process: process) {
+                            model.focus.processID = process.pid
+                        }
                     }
                 }
             }

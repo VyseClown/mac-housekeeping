@@ -1,13 +1,17 @@
 import Foundation
 
 enum ByteFormat {
-    static func string(_ bytes: Int64) -> String {
+    private static let formatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useGB, .useMB, .useKB, .useBytes]
         formatter.countStyle = .file
         formatter.includesUnit = true
         formatter.isAdaptive = true
-        return formatter.string(fromByteCount: bytes)
+        return formatter
+    }()
+
+    static func string(_ bytes: Int64) -> String {
+        formatter.string(fromByteCount: bytes)
     }
 
     static func short(_ bytes: Int64) -> String {

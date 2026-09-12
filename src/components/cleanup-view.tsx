@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Film, FolderSearch, Trash2 } from "lucide-react";
 
 import { ConfirmAction } from "@/components/confirm-action";
@@ -40,6 +40,7 @@ export function CleanupView({
 }) {
   const [filter, setFilter] = useState<KindFilter>("all");
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const wide = useWideLayout();
 
   const items = useMemo(() => {
     return snapshot.cleanupItems.filter((item) => {
@@ -83,7 +84,8 @@ export function CleanupView({
           <EmptyCleanup filter={filter} />
         ) : (
           <>
-            <div className="hidden md:block overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+            {wide ? (
+            <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -136,8 +138,8 @@ export function CleanupView({
                 </TableBody>
               </Table>
             </div>
-
-            <div className="grid gap-2 md:hidden">
+            ) : (
+            <div className="grid gap-2">
               {items.map((item) => (
                 <Card
                   key={item.id}
@@ -167,6 +169,7 @@ export function CleanupView({
                 </Card>
               ))}
             </div>
+            )}
           </>
         )}
       </div>
@@ -330,6 +333,18 @@ function FilterChip({
       {label}
     </Button>
   );
+}
+
+function useWideLayout() {
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+    const sync = () => setWide(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+  return wide;
 }
 
 function EmptyCleanup({ filter }: { filter: KindFilter }) {

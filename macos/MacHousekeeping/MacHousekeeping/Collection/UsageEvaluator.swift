@@ -5,10 +5,14 @@ enum UsageEvaluator {
         openHandles: [OpenHandle],
         lastAccessAt: Date,
         protectedPath: Bool,
+        handleScanFailed: Bool = false,
         now: Date = Date()
     ) -> (UsageState, String) {
         if protectedPath {
             return (.protected, "Matches nightshift or ai-memory. Kept. Never flagged.")
+        }
+        if handleScanFailed {
+            return (.inUse, "Handle scan timed out. Treated as in use until proven idle.")
         }
         if !openHandles.isEmpty {
             let holders = Array(Set(openHandles.map(\.process))).sorted().joined(separator: ", ")

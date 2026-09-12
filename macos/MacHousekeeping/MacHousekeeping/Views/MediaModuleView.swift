@@ -14,8 +14,12 @@ struct MediaModuleView: View {
             Group {
                 if snapshot.media.isEmpty {
                     EmptyStateView(
-                        title: "No Desktop evidence",
-                        detail: "Prove and evidence images and videos on the Desktop show up here after a scan."
+                        title: model.pendingModules.contains(.media)
+                            ? "Scanning Desktop media"
+                            : "No Desktop evidence",
+                        detail: model.pendingModules.contains(.media)
+                            ? "This tab paints when the Desktop walk finishes. Video cells stay gradients."
+                            : "Prove and evidence images and videos on the Desktop show up here after a scan."
                     )
                 } else {
                     gallery
@@ -32,6 +36,13 @@ struct MediaModuleView: View {
 
     private var gallery: some View {
         ScrollView {
+            if let note = snapshot.warnings.first(where: { $0.contains("largest") && $0.contains("Desktop leftover") }) {
+                Text(note)
+                    .font(.caption)
+                    .foregroundStyle(Chrome.muted)
+                    .padding(.horizontal, 22)
+                    .padding(.top, 16)
+            }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 14)], spacing: 14) {
                 ForEach(snapshot.media) { item in
                     Button {

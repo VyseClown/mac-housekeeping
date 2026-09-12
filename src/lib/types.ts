@@ -94,6 +94,10 @@ export type Snapshot = {
     protectedCount: number;
   };
   warnings: string[];
+  included?: {
+    cleanup: boolean;
+    processes: boolean;
+  };
 };
 
 export type HousekeepingAction =

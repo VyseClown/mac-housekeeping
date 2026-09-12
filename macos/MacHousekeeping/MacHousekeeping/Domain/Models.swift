@@ -12,7 +12,7 @@ enum UsageState: String, Sendable {
     case protected
 }
 
-enum HousekeepingModule: String, CaseIterable, Identifiable, Sendable {
+enum HousekeepingModule: String, CaseIterable, Identifiable, Hashable, Sendable {
     case leftovers
     case media
     case worktrees
@@ -126,6 +126,7 @@ struct GitWorkspace: Identifiable, Hashable, Sendable {
     var usageReason: String
     var holdingProcess: ProcessRef?
     var suggestedAction: SuggestedGitAction
+    var lastAccessAt: Date? = nil
 }
 
 enum HeldFileRole: String, Sendable {
@@ -250,4 +251,9 @@ struct DashboardFocus: Equatable, Sendable {
     var mediaID: String?
     var workspaceID: String?
     var processID: Int?
+}
+
+struct ScanPartial: Sendable {
+    var snapshot: Snapshot
+    var pending: Set<HousekeepingModule>
 }

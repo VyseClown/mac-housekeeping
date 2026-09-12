@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Crosshair } from "lucide-react";
 
 import { ConfirmAction } from "@/components/confirm-action";
@@ -39,6 +39,7 @@ export function ProcessView({
   pending: boolean;
 }) {
   const [confirmPid, setConfirmPid] = useState<number | null>(null);
+  const wide = useWideLayout();
   const selected =
     snapshot.processes.find((process) => process.pid === selectedPid) ?? null;
   const confirmProcess =
@@ -64,7 +65,8 @@ export function ProcessView({
             </div>
           ) : (
             <>
-              <div className="hidden md:block overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+              {wide ? (
+              <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -122,8 +124,8 @@ export function ProcessView({
                   </TableBody>
                 </Table>
               </div>
-
-              <div className="grid gap-2 md:hidden">
+              ) : (
+              <div className="grid gap-2">
                 {snapshot.processes.map((process) => (
                   <Card
                     key={process.pid}
@@ -154,6 +156,7 @@ export function ProcessView({
                   </Card>
                 ))}
               </div>
+              )}
             </>
           )}
         </div>
@@ -194,6 +197,18 @@ export function ProcessView({
       />
     </div>
   );
+}
+
+function useWideLayout() {
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+    const sync = () => setWide(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+  return wide;
 }
 
 function SelectedProcess({

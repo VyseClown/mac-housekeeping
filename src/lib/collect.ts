@@ -24,11 +24,30 @@ import { evaluatePathUsage, evaluateProcessUsage } from "@/lib/usage";
 
 const execFileAsync = promisify(execFile);
 
+export type SnapshotTab = "cleanup" | "processes" | "all";
+
+export type CollectRequest = {
+  tab?: SnapshotTab;
+  force?: boolean;
+};
+
 const NAME_FILTER =
-  /Simulator|launchd_sim|qemu-system|CoreSimulator|Xcode|SourceKit|node|Cursor|ffmpeg|tcpdump|Preview|nightshift|ai-memory|ai_memory/i;
+  /Simulator|launchd_sim|qemu-system|CoreSimulator|Xcode|SourceKit|ffmpeg|tcpdump|Preview|QuickTime|nightshift|ai-memory|ai_memory/i;
 
 const CANDIDATE_MATCH =
   /investigation|repro-har|repro-screen|used-capture|used-export|used-review|already-used/i;
+
+const CACHE_TTL_MS = 5000;
+
+type CacheEntry = {
+  at: number;
+  snapshot: Snapshot;
+  included: { cleanup: boolean; processes: boolean };
+};
+
+let inflight: Promise<Snapshot> | null = null;
+let inflightIncludesProcesses = false;
+let cache: CacheEntry | null = null;
 
 function isDarwin(): boolean {
   if (process.env.HOUSEKEEPING_FORCE_MOCK === "1") return false;
@@ -97,45 +116,58 @@ async function lastAccessIso(path: string): Promise<string> {
   return new Date(0).toISOString();
 }
 
-async function handlesFor(path: string): Promise<OpenHandle[]> {
-  const { stdout, ok } = await run("lsof", ["-nP", "--", path], 6000);
-  if (!ok || !stdout.trim()) return [];
-  const handles: OpenHandle[] = [];
+function parseHandleLines(stdout: string): Map<string, OpenHandle[]> {
+  const handles = new Map<string, OpenHandle[]>();
   for (const line of stdout.split("\n").slice(1)) {
     const parts = line.trim().split(/\s+/);
-    if (parts.length < 4) continue;
+    if (parts.length < 9) continue;
     const process = parts[0];
     const pid = Number.parseInt(parts[1] ?? "", 10);
     if (!Number.isFinite(pid)) continue;
-    handles.push({
+    const name = parts.slice(8).join(" ");
+    if (!name.startsWith("/")) continue;
+    const list = handles.get(name) ?? [];
+    list.push({
       pid,
       process,
       fd: parts[3] ?? null,
       mode: parts[4] ?? null,
     });
+    handles.set(name, list);
   }
   return handles;
 }
 
-async function findCandidates(home: string): Promise<string[]> {
-  const roots = [
-    `${home}/Downloads`,
-    `${home}/Desktop`,
-    `${home}/Documents`,
-    `${home}/Movies`,
-    `${home}/Pictures`,
-    `${home}/Library/Developer/Xcode/DerivedData`,
-    "/tmp",
-  ].filter((root) => existsSync(root));
+async function handlesForPaths(paths: string[]): Promise<Map<string, OpenHandle[]>> {
+  const map = new Map<string, OpenHandle[]>();
+  if (paths.length === 0) return map;
+  for (let index = 0; index < paths.length; index += 24) {
+    const chunk = paths.slice(index, index + 24);
+    const { stdout, ok } = await run("lsof", ["-nP", "--", ...chunk], 8000);
+    if (!ok || !stdout.trim()) continue;
+    const parsed = parseHandleLines(stdout);
+    for (const path of chunk) {
+      const exact = parsed.get(path) ?? [];
+      const prefixed: OpenHandle[] = [];
+      for (const [name, list] of parsed) {
+        if (name === path || name.startsWith(path) || path.startsWith(name)) {
+          prefixed.push(...list);
+        }
+      }
+      map.set(path, exact.length > 0 ? exact : prefixed);
+    }
+  }
+  return map;
+}
 
+async function findOn(roots: string[], maxdepth: number): Promise<string[]> {
   if (roots.length === 0) return [];
-
   const { stdout } = await run(
     "find",
     [
       ...roots,
       "-maxdepth",
-      "4",
+      String(maxdepth),
       "(",
       "-iname",
       "*investigation*",
@@ -161,11 +193,31 @@ async function findCandidates(home: string): Promise<string[]> {
     ],
     10000
   );
+  return stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+async function findCandidates(home: string): Promise<string[]> {
+  const mainRoots = [
+    `${home}/Downloads`,
+    `${home}/Desktop`,
+    `${home}/Documents`,
+    `${home}/Movies`,
+    `${home}/Pictures`,
+    "/tmp",
+  ].filter((root) => existsSync(root));
+  const derived = `${home}/Library/Developer/Xcode/DerivedData`;
+
+  const [main, extra] = await Promise.all([
+    findOn(mainRoots, 4),
+    existsSync(derived) ? findOn([derived], 2) : Promise.resolve([]),
+  ]);
 
   const seen = new Set<string>();
   const paths: string[] = [];
-  for (const line of stdout.split("\n")) {
-    const path = line.trim();
+  for (const path of [...main, ...extra]) {
     if (!path || seen.has(path)) continue;
     if (!CANDIDATE_MATCH.test(path)) continue;
     seen.add(path);
@@ -174,11 +226,29 @@ async function findCandidates(home: string): Promise<string[]> {
   return paths;
 }
 
-async function collectCleanup(
-  home: string,
-  warnings: string[]
-): Promise<{ items: CleanupItem[]; keeps: ProtectedKeep[] }> {
-  const found = await findCandidates(home);
+async function mapPool<T, R>(
+  items: T[],
+  limit: number,
+  work: (item: T) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const results = new Array<R>(items.length);
+  let next = 0;
+  async function worker() {
+    for (;;) {
+      const index = next;
+      if (index >= items.length) return;
+      next += 1;
+      results[index] = await work(items[index]);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker())
+  );
+  return results;
+}
+
+function keepsFromFound(home: string, found: string[]): ProtectedKeep[] {
   const keeps: ProtectedKeep[] = DEFAULT_PROTECTED_KEEPS.map((keep) => {
     const path = keep.path.replace("/Users/alessandro", home);
     return {
@@ -187,7 +257,6 @@ async function collectCleanup(
       present: existsSync(path),
     };
   });
-
   for (const path of found) {
     if (!isProtectedPath(path)) continue;
     if (keeps.some((keep) => keep.path === path)) continue;
@@ -198,34 +267,42 @@ async function collectCleanup(
       present: true,
     });
   }
+  return keeps;
+}
 
-  const items: CleanupItem[] = [];
-  for (const path of found) {
-    if (isProtectedPath(path)) continue;
-    const [bytes, lastAccessAt, openHandles] = await Promise.all([
+async function collectCleanup(
+  home: string,
+  warnings: string[]
+): Promise<{ items: CleanupItem[]; keeps: ProtectedKeep[] }> {
+  const found = await findCandidates(home);
+  const keeps = keepsFromFound(home, found);
+  const candidates = found.filter((path) => !isProtectedPath(path));
+  const handleMap = await handlesForPaths(candidates);
+  const items = await mapPool(candidates, 4, async (path) => {
+    const [bytes, lastAccessAt] = await Promise.all([
       pathBytes(path),
       lastAccessIso(path),
-      handlesFor(path),
     ]);
+    const openHandles = handleMap.get(path) ?? [];
     const kind = kindFor(path);
     const usage = evaluatePathUsage({
       openHandles,
       lastAccessAt,
       protectedPath: false,
     });
-    items.push({
+    return {
       id: slug(path),
       path,
       kind,
       bytes,
       lastAccessAt,
-      lastAccessSource: "stat",
+      lastAccessSource: "stat" as const,
       openHandles,
       usage: usage.usage,
       usageReason: usage.usageReason,
       note: noteFor(path, kind),
-    });
-  }
+    };
+  });
 
   if (found.length === 0) {
     warnings.push(
@@ -277,70 +354,69 @@ function categoryFor(name: string, command: string): ProcessInfo["category"] {
   return "dev";
 }
 
-async function filesForPid(
-  pid: number,
+async function filesForPids(
+  pids: number[],
   cleanupPaths: string[]
-): Promise<HeldFile[]> {
-  const { stdout, ok } = await run("lsof", ["-nP", "-p", String(pid)], 5000);
-  if (!ok) return [];
-  const held: HeldFile[] = [];
-  const seen = new Set<string>();
-  for (const line of stdout.split("\n").slice(1)) {
-    const pathMatch = line.match(/(\/[\w./ -]+)$/);
-    const path = pathMatch?.[1]?.trim();
-    if (!path || seen.has(path)) continue;
-    if (
-      !CANDIDATE_MATCH.test(path) &&
-      !isProtectedPath(path) &&
-      !/CoreSimulator|DerivedData/i.test(path)
-    ) {
-      continue;
+): Promise<Map<number, HeldFile[]>> {
+  const held = new Map<number, HeldFile[]>();
+  if (pids.length === 0) return held;
+  for (let index = 0; index < pids.length; index += 32) {
+    const chunk = pids.slice(index, index + 32);
+    const { stdout, ok } = await run(
+      "lsof",
+      ["-nP", "-p", chunk.join(",")],
+      8000
+    );
+    if (!ok) continue;
+    const seen = new Map<number, Set<string>>();
+    for (const line of stdout.split("\n").slice(1)) {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 9) continue;
+      const pid = Number.parseInt(parts[1] ?? "", 10);
+      const path = parts.slice(8).join(" ");
+      if (!Number.isFinite(pid) || !path.startsWith("/")) continue;
+      if (seen.get(pid)?.has(path)) continue;
+      if (
+        !CANDIDATE_MATCH.test(path) &&
+        !isProtectedPath(path) &&
+        !/CoreSimulator|DerivedData|worktree/i.test(path)
+      ) {
+        continue;
+      }
+      const already = seen.get(pid) ?? new Set<string>();
+      already.add(path);
+      seen.set(pid, already);
+      const role: HeldFile["role"] = isProtectedPath(path)
+        ? "protected"
+        : cleanupPaths.some(
+            (candidate) => path.startsWith(candidate) || candidate.startsWith(path)
+          )
+          ? "cleanup-target"
+          : /CoreSimulator|DerivedData|worktree/i.test(path)
+            ? "runtime"
+            : "other";
+      const list = held.get(pid) ?? [];
+      if (list.length >= 6) continue;
+      list.push({ path, role, bytes: null });
+      held.set(pid, list);
     }
-    seen.add(path);
-    const role: HeldFile["role"] = isProtectedPath(path)
-      ? "protected"
-      : cleanupPaths.some((candidate) => path.startsWith(candidate) || candidate.startsWith(path))
-        ? "cleanup-target"
-        : /CoreSimulator|DerivedData/i.test(path)
-          ? "runtime"
-          : "other";
-    held.push({ path, role, bytes: null });
-    if (held.length >= 6) break;
   }
   return held;
 }
 
-async function collectProcesses(
-  cleanupItems: CleanupItem[],
-  warnings: string[]
-): Promise<ProcessInfo[]> {
-  const { stdout, ok } = await run(
-    "ps",
-    ["-axo", "pid=,ppid=,user=,pcpu=,pmem=,rss=,etime=,state=,command="],
-    6000
-  );
-  if (!ok) {
-    warnings.push("ps failed. Process list is empty.");
-    return [];
-  }
-
-  const rows = stdout
-    .split("\n")
-    .map(parsePsLine)
-    .filter((row): row is NonNullable<typeof row> => row !== null);
-
+function buildProcesses(
+  rows: NonNullable<ReturnType<typeof parsePsLine>>[],
+  heldByPid: Map<number, HeldFile[]>,
+  holderPids: Set<number>
+): ProcessInfo[] {
   const byPid = new Map(rows.map((row) => [row.pid, row]));
-  const interesting = rows.filter((row) =>
-    NAME_FILTER.test(row.command)
+  const interesting = rows.filter(
+    (row) => NAME_FILTER.test(row.command) || holderPids.has(row.pid)
   );
-
-  const cleanupPaths = cleanupItems.map((item) => item.path);
-  const processes: ProcessInfo[] = [];
-
-  for (const row of interesting) {
+  return interesting.map((row) => {
     const name = processName(row.command);
     const parent = byPid.get(row.ppid);
-    const heldFiles = await filesForPid(row.pid, cleanupPaths);
+    const heldFiles = heldByPid.get(row.pid) ?? [];
     const category = categoryFor(name, row.command);
     const inUseByModels =
       category === "simulator" && /Simulator|qemu-system|launchd_sim/i.test(name);
@@ -352,8 +428,7 @@ async function collectProcesses(
       inUseByModels,
       idleLeftover: category === "idle-leftover",
     });
-
-    processes.push({
+    return {
       pid: row.pid,
       ppid: row.ppid,
       parentName: parent ? processName(parent.command) : "unknown",
@@ -378,10 +453,8 @@ async function collectProcesses(
       },
       category,
       inUseByModels,
-    });
-  }
-
-  return processes;
+    };
+  });
 }
 
 type SimctlJson = {
@@ -411,7 +484,9 @@ async function collectSimulators(warnings: string[]): Promise<SimulatorDevice[]>
     const parsed = JSON.parse(stdout) as SimctlJson;
     const devices: SimulatorDevice[] = [];
     for (const [runtimeKey, list] of Object.entries(parsed.devices ?? {})) {
-      const runtime = runtimeKey.replace("com.apple.CoreSimulator.SimRuntime.", "").replace(/-/g, " ");
+      const runtime = runtimeKey
+        .replace("com.apple.CoreSimulator.SimRuntime.", "")
+        .replace(/-/g, " ");
       for (const device of list) {
         if (device.isAvailable === false) continue;
         const state =
@@ -444,17 +519,57 @@ async function collectSimulators(warnings: string[]): Promise<SimulatorDevice[]>
   }
 }
 
-async function collectMacSnapshot(): Promise<Snapshot> {
+async function collectMacSnapshot(options: {
+  includeProcesses: boolean;
+  reuse?: { items: CleanupItem[]; keeps: ProtectedKeep[]; host: Snapshot["host"] };
+}): Promise<Snapshot> {
   const warnings: string[] = [];
   const home = homedir();
   const user = userInfo().username;
-  const osName = (await run("sw_vers", ["-productVersion"])).stdout.trim();
-  const computer =
-    (await run("scutil", ["--get", "ComputerName"])).stdout.trim() || hostname();
 
-  const { items, keeps } = await collectCleanup(home, warnings);
-  const processes = await collectProcesses(items, warnings);
-  const simulators = await collectSimulators(warnings);
+  const [osName, computer, cleanup, psOut, simulators] = await Promise.all([
+    options.reuse
+      ? Promise.resolve(options.reuse.host.os.replace(/^macOS\s+/, ""))
+      : run("sw_vers", ["-productVersion"]).then((result) => result.stdout.trim()),
+    options.reuse
+      ? Promise.resolve(options.reuse.host.hostname)
+      : run("scutil", ["--get", "ComputerName"]).then(
+          (result) => result.stdout.trim() || hostname()
+        ),
+    options.reuse
+      ? Promise.resolve({ items: options.reuse.items, keeps: options.reuse.keeps })
+      : collectCleanup(home, warnings),
+    options.includeProcesses
+      ? run(
+          "ps",
+          ["-axo", "pid=,ppid=,user=,pcpu=,pmem=,rss=,etime=,state=,command="],
+          6000
+        )
+      : Promise.resolve({ stdout: "", ok: true }),
+    options.includeProcesses ? collectSimulators(warnings) : Promise.resolve([]),
+  ]);
+
+  const { items, keeps } = cleanup;
+  let processes: ProcessInfo[] = [];
+  if (options.includeProcesses) {
+    if (!psOut.ok) {
+      warnings.push("ps failed. Process list is empty.");
+    } else {
+      const rows = psOut.stdout
+        .split("\n")
+        .map(parsePsLine)
+        .filter((row): row is NonNullable<typeof row> => row !== null);
+      const holderPids = new Set(items.flatMap((item) => item.openHandles.map((handle) => handle.pid)));
+      const inspectPids = rows
+        .filter((row) => NAME_FILTER.test(row.command) || holderPids.has(row.pid))
+        .map((row) => row.pid);
+      const held = await filesForPids(
+        inspectPids,
+        items.map((item) => item.path)
+      );
+      processes = buildProcesses(rows, held, holderPids);
+    }
+  }
 
   const reclaimableBytes = items
     .filter((item) => item.usage === "idle")
@@ -468,8 +583,8 @@ async function collectMacSnapshot(): Promise<Snapshot> {
     source: "macos",
     host: {
       hostname: computer,
-      os: osName ? `macOS ${osName}` : process.platform,
-      user,
+      os: osName ? (osName.startsWith("macOS") ? osName : `macOS ${osName}`) : process.platform,
+      user: options.reuse?.host.user ?? user,
     },
     cleanupItems: items,
     processes,
@@ -481,21 +596,82 @@ async function collectMacSnapshot(): Promise<Snapshot> {
       protectedCount: keeps.length,
     },
     warnings,
+    included: {
+      cleanup: true,
+      processes: options.includeProcesses,
+    },
   };
 }
 
-export async function collectSnapshot(): Promise<Snapshot> {
+function completeMock(): Snapshot {
+  return {
+    ...applySession(buildMockSnapshot()),
+    included: { cleanup: true, processes: true },
+  };
+}
+
+export function invalidateSnapshotCache() {
+  cache = null;
+}
+
+export async function collectSnapshot(
+  request: CollectRequest = {}
+): Promise<Snapshot> {
   if (!isDarwin()) {
-    return applySession(buildMockSnapshot());
+    return completeMock();
   }
+
+  const includeProcesses = (request.tab ?? "all") !== "cleanup";
+
+  if (!request.force && cache && Date.now() - cache.at < CACHE_TTL_MS) {
+    if (!includeProcesses || cache.included.processes) {
+      return applySession(cache.snapshot);
+    }
+  }
+
+  if (inflight && (!includeProcesses || inflightIncludesProcesses)) {
+    const current = await inflight;
+    if (!includeProcesses || cache?.included.processes) {
+      return current;
+    }
+  }
+
+  const reuse =
+    includeProcesses && cache && !cache.included.processes
+      ? {
+          items: cache.snapshot.cleanupItems,
+          keeps: cache.snapshot.protectedKeeps,
+          host: cache.snapshot.host,
+        }
+      : undefined;
+
+  const runCollect = (async () => {
+    try {
+      const raw = await collectMacSnapshot({ includeProcesses, reuse });
+      cache = {
+        at: Date.now(),
+        snapshot: raw,
+        included: { cleanup: true, processes: includeProcesses },
+      };
+      return applySession(raw);
+    } catch (error) {
+      const fallback = completeMock();
+      fallback.warnings = [
+        `macOS collection failed (${error instanceof Error ? error.message : "unknown"}). Showing mock data.`,
+        ...fallback.warnings,
+      ];
+      return fallback;
+    }
+  })();
+
+  inflight = runCollect;
+  inflightIncludesProcesses = includeProcesses;
   try {
-    return applySession(await collectMacSnapshot());
-  } catch (error) {
-    const fallback = applySession(buildMockSnapshot());
-    fallback.warnings = [
-      `macOS collection failed (${error instanceof Error ? error.message : "unknown"}). Showing mock data.`,
-      ...fallback.warnings,
-    ];
-    return fallback;
+    return await runCollect;
+  } finally {
+    if (inflight === runCollect) {
+      inflight = null;
+      inflightIncludesProcesses = false;
+    }
   }
 }

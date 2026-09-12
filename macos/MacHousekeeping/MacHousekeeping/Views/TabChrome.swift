@@ -29,7 +29,7 @@ struct TabChrome: View {
 }
 
 struct NotchCompanion: View {
-    var snapshot: Snapshot?
+    var source: DataSource?
     var scanning: Bool
 
     var body: some View {
@@ -50,15 +50,15 @@ struct NotchCompanion: View {
 
     private var dotColor: Color {
         if scanning { return Chrome.amber }
-        return snapshot?.source == .macos ? Chrome.accent : Chrome.amber
+        return source == .macos ? Chrome.accent : Chrome.amber
     }
 
     private var label: String {
         if scanning {
-            return snapshot == nil ? "Scanning" : "Scanning · companion"
+            return source == nil ? "Scanning" : "Scanning · companion"
         }
-        guard let snapshot else { return "Scan idle" }
-        if snapshot.source == .mock {
+        guard let source else { return "Scan idle" }
+        if source == .mock {
             return "Mock · companion"
         }
         return "Live · companion"

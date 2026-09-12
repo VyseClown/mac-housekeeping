@@ -3,6 +3,7 @@ import SwiftUI
 struct WorktreeModuleView: View {
     @ObservedObject var model: AppModel
     var snapshot: Snapshot
+    @State private var showBranches = false
 
     private var worktrees: [GitWorkspace] {
         snapshot.workspaces.filter { $0.kind == .worktree }
@@ -10,6 +11,10 @@ struct WorktreeModuleView: View {
 
     private var branches: [GitWorkspace] {
         snapshot.workspaces.filter { $0.kind == .localBranch }
+    }
+
+    private var barWorktrees: [GitWorkspace] {
+        Array(worktrees.prefix(8))
     }
 
     private var totalWorktreeBytes: Int64 {
@@ -21,8 +26,12 @@ struct WorktreeModuleView: View {
             Group {
                 if snapshot.workspaces.isEmpty {
                     EmptyStateView(
-                        title: "No worktrees mapped",
-                        detail: "Local branches and git worktrees, including large /tmp leftovers, show here. This app never runs git worktree remove."
+                        title: model.pendingModules.contains(.worktrees)
+                            ? "Scanning branches"
+                            : "No worktrees mapped",
+                        detail: model.pendingModules.contains(.worktrees)
+                            ? "Porcelain list lands first. /tmp sizes fill in behind it."
+                            : "Local branches and git worktrees, including large /tmp leftovers, show here. This app never runs git worktree remove."
                     )
                 } else {
                     list
@@ -47,16 +56,34 @@ struct WorktreeModuleView: View {
                     .font(.callout)
                     .foregroundStyle(Chrome.muted)
                 stackedBar
+                if worktrees.count > barWorktrees.count {
+                    Text("\(worktrees.count - barWorktrees.count) more leftover trees stay in the list.")
+                        .font(.caption)
+                        .foregroundStyle(Chrome.faint)
+                }
                 sectionTitle("Worktrees")
                 ForEach(worktrees) { item in
                     WorkspaceRow(item: item) {
                         model.focus.workspaceID = item.id
                     }
                 }
-                sectionTitle("Local branches")
-                ForEach(branches) { item in
-                    WorkspaceRow(item: item) {
-                        model.focus.workspaceID = item.id
+                Button {
+                    showBranches.toggle()
+                } label: {
+                    HStack {
+                        sectionTitle("Local branches")
+                        Spacer()
+                        Text(showBranches ? "Hide" : "\(branches.count)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Chrome.muted)
+                    }
+                }
+                .buttonStyle(.plain)
+                if showBranches {
+                    ForEach(branches) { item in
+                        WorkspaceRow(item: item) {
+                            model.focus.workspaceID = item.id
+                        }
                     }
                 }
             }
@@ -67,7 +94,7 @@ struct WorktreeModuleView: View {
     private var stackedBar: some View {
         GeometryReader { geo in
             HStack(spacing: 2) {
-                ForEach(worktrees) { item in
+                ForEach(barWorktrees) { item in
                     let width = max(8, geo.size.width * CGFloat(item.bytes) / CGFloat(max(totalWorktreeBytes, 1)))
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .fill(item.usage == .inUse ? Chrome.amber : Chrome.worktreeHue)
@@ -103,8 +130,8 @@ struct WorktreeModuleView: View {
                 ValidationPanel(
                     usage: item.usage,
                     usageReason: item.usageReason,
-                    lastAccess: nil,
-                    lastAccessSource: nil,
+                    lastAccess: item.lastAccessAt,
+                    lastAccessSource: item.lastAccessAt == nil ? nil : "stat",
                     handles: item.holdingProcess.map { [OpenHandle(pid: $0.pid, process: $0.name, fd: nil, mode: nil)] } ?? [],
                     parent: item.holdingProcess.map { "\($0.name) · parent \($0.parentName)" },
                     extra: "Suggested later only. This app does not run git worktree remove or delete branches."

@@ -2,8 +2,10 @@ import { execFile } from "node:child_process";
 import { rm } from "node:fs/promises";
 import { promisify } from "node:util";
 
-import { collectSnapshot } from "@/lib/collect";
+import { collectSnapshot, invalidateSnapshotCache } from "@/lib/collect";
+import { buildMockSnapshot } from "@/lib/mock";
 import {
+  applySession,
   rememberClose,
   rememberDelete,
   rememberKill,
@@ -38,7 +40,7 @@ export async function performAction(
       message: isDarwin()
         ? `Deleted ${gate.item.path}.`
         : `Mock-deleted ${gate.item.path}. Nothing was removed on this host.`,
-      snapshot: await collectSnapshot(),
+      snapshot: await snapshotAfterMutation(),
     };
   }
 
@@ -55,7 +57,7 @@ export async function performAction(
       message: isDarwin()
         ? `Sent SIGTERM to ${gate.process.name} (${gate.process.pid}).`
         : `Mock-killed ${gate.process.name} (${gate.process.pid}). No signal left this host.`,
-      snapshot: await collectSnapshot(),
+      snapshot: await snapshotAfterMutation(),
     };
   }
 
@@ -73,6 +75,14 @@ export async function performAction(
     message: isDarwin()
       ? `Requested shutdown of ${gate.device.name}.`
       : `Mock-closed ${gate.device.name}. No simulator was shut down.`,
-    snapshot: await collectSnapshot(),
+    snapshot: await snapshotAfterMutation(),
   };
+}
+
+async function snapshotAfterMutation() {
+  if (!isDarwin()) {
+    return applySession(buildMockSnapshot());
+  }
+  invalidateSnapshotCache();
+  return collectSnapshot({ force: true, tab: "all" });
 }

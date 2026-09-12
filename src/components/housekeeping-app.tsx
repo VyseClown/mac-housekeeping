@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FolderSearch, RefreshCw, Shield, Workflow } from "lucide-react";
 
 import { CleanupView } from "@/components/cleanup-view";
@@ -16,15 +16,32 @@ import type { ActionResult, Snapshot } from "@/lib/types";
 type View = "cleanup" | "processes";
 type Status = "loading" | "ready" | "error";
 
-export function HousekeepingApp() {
-  const [status, setStatus] = useState<Status>("loading");
+function hasProcessesPayload(snapshot: Snapshot | null): boolean {
+  if (!snapshot) return false;
+  if (snapshot.source === "mock") return true;
+  return snapshot.included?.processes !== false;
+}
+
+export function HousekeepingApp({
+  initialSnapshot,
+}: {
+  initialSnapshot?: Snapshot;
+}) {
+  const [status, setStatus] = useState<Status>(initialSnapshot ? "ready" : "loading");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(initialSnapshot ?? null);
   const [view, setView] = useState<View>("cleanup");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [selectedPid, setSelectedPid] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialSnapshot?.cleanupItems[0]?.id ?? null
+  );
+  const [selectedPid, setSelectedPid] = useState<number | null>(
+    initialSnapshot?.processes[0]?.pid ?? null
+  );
   const [pending, setPending] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingProcesses, setLoadingProcesses] = useState(false);
+  const processesRequested = useRef(hasProcessesPayload(initialSnapshot ?? null));
 
   const applySnapshot = useCallback((data: Snapshot) => {
     setSnapshot(data);
@@ -41,8 +58,12 @@ export function HousekeepingApp() {
     setStatus("ready");
   }, []);
 
-  const load = useCallback(async () => {
-    const response = await fetch("/api/snapshot", { cache: "no-store" });
+  const load = useCallback(async (tab: View | "all", signal?: AbortSignal) => {
+    const query = tab === "all" ? "" : `?tab=${tab}`;
+    const response = await fetch(`/api/snapshot${query}`, {
+      cache: "no-store",
+      signal,
+    });
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as {
         error?: string;
@@ -53,13 +74,14 @@ export function HousekeepingApp() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    load()
+    if (initialSnapshot) return;
+    const controller = new AbortController();
+    load("cleanup", controller.signal)
       .then((data) => {
-        if (!cancelled) applySnapshot(data);
+        if (!controller.signal.aborted) applySnapshot(data);
       })
       .catch((cause: unknown) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setError(
           cause instanceof Error
             ? cause.message
@@ -68,14 +90,46 @@ export function HousekeepingApp() {
         setStatus("error");
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [applySnapshot, load]);
+  }, [applySnapshot, initialSnapshot, load]);
+
+  useEffect(() => {
+    if (view !== "processes" || hasProcessesPayload(snapshot) || processesRequested.current) {
+      return;
+    }
+    processesRequested.current = true;
+    const controller = new AbortController();
+    setLoadingProcesses(true);
+    load("processes", controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) applySnapshot(data);
+      })
+      .catch((cause: unknown) => {
+        if (controller.signal.aborted) {
+          processesRequested.current = false;
+          return;
+        }
+        processesRequested.current = false;
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Could not collect processes."
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingProcesses(false);
+      });
+    return () => {
+      controller.abort();
+    };
+  }, [applySnapshot, load, snapshot, view]);
 
   function refresh() {
-    setStatus("loading");
     setError(null);
-    void load()
+    setRefreshing(true);
+    if (!snapshot) setStatus("loading");
+    void load("all")
       .then(applySnapshot)
       .catch((cause: unknown) => {
         setError(
@@ -83,8 +137,9 @@ export function HousekeepingApp() {
             ? cause.message
             : "Could not collect a housekeeping snapshot."
         );
-        setStatus("error");
-      });
+        if (!snapshot) setStatus("error");
+      })
+      .finally(() => setRefreshing(false));
   }
 
   async function runAction(body: Record<string, unknown>) {
@@ -136,10 +191,14 @@ export function HousekeepingApp() {
             <Button
               variant="outline"
               onClick={refresh}
-              disabled={status === "loading"}
+              disabled={refreshing || status === "loading"}
+              aria-busy={refreshing}
             >
-              <RefreshCw data-icon="inline-start" />
-              Refresh
+              <RefreshCw
+                data-icon="inline-start"
+                className={refreshing ? "animate-spin" : undefined}
+              />
+              {refreshing ? "Refreshing…" : "Refresh"}
             </Button>
           </div>
         </div>
@@ -160,7 +219,7 @@ export function HousekeepingApp() {
         </Alert>
       ) : null}
 
-      {status === "error" && error ? (
+      {status === "error" && error && !snapshot ? (
         <Alert variant="destructive">
           <AlertTitle>Snapshot failed</AlertTitle>
           <AlertDescription>
@@ -172,9 +231,9 @@ export function HousekeepingApp() {
         </Alert>
       ) : null}
 
-      {status === "ready" && snapshot && error ? (
+      {snapshot && error ? (
         <Alert variant="destructive">
-          <AlertTitle>Action blocked</AlertTitle>
+          <AlertTitle>{status === "error" ? "Snapshot failed" : "Action blocked"}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
@@ -198,27 +257,34 @@ export function HousekeepingApp() {
               Processes
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="cleanup" className="pt-4">
-            <CleanupView
-              snapshot={snapshot}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              pending={pending}
-              onDelete={(id) => runAction({ type: "delete-item", id })}
-            />
-          </TabsContent>
-          <TabsContent value="processes" className="pt-4">
-            <ProcessView
-              snapshot={snapshot}
-              selectedPid={selectedPid}
-              onSelect={setSelectedPid}
-              pending={pending}
-              onKill={(pid) => runAction({ type: "kill-process", pid })}
-              onCloseSimulator={(udid) =>
-                runAction({ type: "close-simulator", udid })
-              }
-            />
-          </TabsContent>
+          {view === "cleanup" ? (
+            <TabsContent value="cleanup" className="pt-4">
+              <CleanupView
+                snapshot={snapshot}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                pending={pending}
+                onDelete={(id) => runAction({ type: "delete-item", id })}
+              />
+            </TabsContent>
+          ) : (
+            <TabsContent value="processes" className="pt-4">
+              {loadingProcesses && !hasProcessesPayload(snapshot) ? (
+                <p className="text-sm text-muted-foreground">Collecting processes…</p>
+              ) : (
+                <ProcessView
+                  snapshot={snapshot}
+                  selectedPid={selectedPid}
+                  onSelect={setSelectedPid}
+                  pending={pending}
+                  onKill={(pid) => runAction({ type: "kill-process", pid })}
+                  onCloseSimulator={(udid) =>
+                    runAction({ type: "close-simulator", udid })
+                  }
+                />
+              )}
+            </TabsContent>
+          )}
         </Tabs>
       ) : null}
     </div>

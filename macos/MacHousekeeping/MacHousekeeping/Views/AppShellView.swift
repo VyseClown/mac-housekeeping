@@ -26,7 +26,12 @@ struct AppShellView: View {
         }
         .background(Chrome.background)
         .sheet(item: $model.pendingConfirm) { intent in
-            ConfirmSheet(model: model, intent: intent)
+            ConfirmSheet(
+                title: confirmTitle(intent),
+                detail: confirmDetail(intent),
+                onCancel: model.cancelConfirm,
+                onConfirm: model.confirmPending
+            )
         }
     }
 
@@ -41,7 +46,7 @@ struct AppShellView: View {
             }
             TabChrome(module: model.focus.module, onSelect: model.show)
             Spacer()
-            NotchCompanion(snapshot: model.snapshot, scanning: model.isScanning)
+            NotchCompanion(source: model.snapshot?.source, scanning: model.isScanning)
             Button(model.isScanning ? "Scanning…" : "Scan leftovers") { model.scan() }
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(model.isScanning)
@@ -71,11 +76,32 @@ struct AppShellView: View {
             }
         }
     }
+
+    private func confirmTitle(_ intent: DestructiveIntent) -> String {
+        switch intent {
+        case .deleteLeftover: return "Delete this leftover?"
+        case .killProcess: return "Localize, then kill?"
+        }
+    }
+
+    private func confirmDetail(_ intent: DestructiveIntent) -> String {
+        guard let snapshot = model.snapshot else { return "Scan first." }
+        switch intent {
+        case .deleteLeftover(let id):
+            let path = snapshot.leftovers.first(where: { $0.id == id })?.path ?? id
+            return "\(path) is idle and not nightshift or ai-memory. Nothing deletes until you confirm on a later pass."
+        case .killProcess(let pid):
+            let name = snapshot.processes.first(where: { $0.pid == pid })?.name ?? "process"
+            return "\(name) (\(pid)) can be localized now. This app will not send a signal."
+        }
+    }
 }
 
 struct ConfirmSheet: View {
-    @ObservedObject var model: AppModel
-    var intent: DestructiveIntent
+    var title: String
+    var detail: String
+    var onCancel: () -> Void
+    var onConfirm: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -89,34 +115,15 @@ struct ConfirmSheet: View {
                 .font(.caption)
                 .foregroundStyle(Chrome.amber)
             HStack {
-                Button("Cancel") { model.cancelConfirm() }
+                Button("Cancel", action: onCancel)
                     .buttonStyle(QuietButtonStyle())
                 Spacer()
-                Button("I understand") { model.confirmPending() }
+                Button("I understand", action: onConfirm)
                     .buttonStyle(PrimaryButtonStyle())
             }
         }
         .padding(24)
         .frame(width: 460)
         .background(Chrome.card)
-    }
-
-    private var title: String {
-        switch intent {
-        case .deleteLeftover: return "Delete this leftover?"
-        case .killProcess: return "Localize, then kill?"
-        }
-    }
-
-    private var detail: String {
-        guard let snapshot = model.snapshot else { return "Scan first." }
-        switch intent {
-        case .deleteLeftover(let id):
-            let path = snapshot.leftovers.first(where: { $0.id == id })?.path ?? id
-            return "\(path) is idle and not nightshift or ai-memory. Nothing deletes until you confirm on a later pass."
-        case .killProcess(let pid):
-            let name = snapshot.processes.first(where: { $0.pid == pid })?.name ?? "process"
-            return "\(name) (\(pid)) can be localized now. This app will not send a signal."
-        }
     }
 }

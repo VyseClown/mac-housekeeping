@@ -8,12 +8,19 @@ final class AppModel: ObservableObject {
     @Published var pendingConfirm: DestructiveIntent?
     @Published var banner: String?
     @Published var isScanning = false
+    @Published var pendingModules: Set<HousekeepingModule> = []
 
     private var scanRunning = false
 
     var snapshot: Snapshot? {
         if case .ready(let snapshot) = loadState { return snapshot }
         return nil
+    }
+
+    func applyPartial(_ partial: ScanPartial) {
+        loadState = .ready(partial.snapshot)
+        pendingModules = partial.pending
+        banner = partial.snapshot.warnings.first
     }
 
     func scan() {
@@ -23,12 +30,18 @@ final class AppModel: ObservableObject {
         banner = nil
         if snapshot == nil {
             loadState = .loading
+            pendingModules = Set(HousekeepingModule.allCases)
         }
+
+        let sink = MainPartialSink(model: self)
         Task {
             let loaded = await Task.detached(priority: .userInitiated) {
-                SnapshotStore.load()
+                SnapshotStore.load { partial in
+                    sink.publish(partial)
+                }
             }.value
             loadState = .ready(loaded)
+            pendingModules = []
             banner = loaded.warnings.first
             isScanning = false
             scanRunning = false
@@ -70,5 +83,19 @@ final class AppModel: ObservableObject {
             banner = "No signal was sent. \(process.name) (\(pid)) is still running. Localize it first."
         }
         self.pendingConfirm = nil
+    }
+}
+
+final class MainPartialSink: @unchecked Sendable {
+    weak var model: AppModel?
+
+    init(model: AppModel) {
+        self.model = model
+    }
+
+    func publish(_ partial: ScanPartial) {
+        DispatchQueue.main.async { [weak model] in
+            model?.applyPartial(partial)
+        }
     }
 }

@@ -10,7 +10,7 @@ Open `macos/MacHousekeeping/MacHousekeeping.xcodeproj` on a Mac. The dashboard i
 
 1. On a Mac, open `macos/MacHousekeeping/MacHousekeeping.xcodeproj` in Xcode 15 or later.
 2. Select the MacHousekeeping scheme.
-3. Run. The first scan loads a live Darwin snapshot, or mock inventory if the host is not macOS. A later Scan leftovers keeps the last tabs on screen while the new snapshot is collected.
+3. Run. The first scan overlaps workspaces, the Desktop leftover/media walk, `ps`, and `simctl`. Each tab can paint when its module is ready instead of waiting for one full snapshot. A later Scan leftovers keeps the last tabs on screen while the new snapshot is collected.
 
 ```bash
 # Optional, from Xcode or a Mac shell

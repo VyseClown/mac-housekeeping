@@ -68,6 +68,41 @@ final class InventoryInvariantTests: XCTestCase {
         XCTAssertFalse(roots.contains("/private/tmp"))
         XCTAssertTrue(roots.contains("/Users/alessandro/work"))
         XCTAssertTrue(roots.contains("/Users/alessandro/Developer"))
+        XCTAssertTrue(DarwinCollector.leftoverNameGlobs.contains("pr-*"))
+        XCTAssertFalse(DarwinCollector.leftoverNameGlobs.contains("*pr-*"))
+        XCTAssertEqual(DarwinCollector.duParallelLimit, 4)
+        XCTAssertEqual(
+            DarwinCollector.desktopLeftoverDirectories(from: [
+                "/Users/alessandro/Desktop/pr-evidence-pack",
+                "/Users/alessandro/Desktop/Notes",
+            ]),
+            ["/Users/alessandro/Desktop/pr-evidence-pack"]
+        )
+        XCTAssertTrue(DarwinCollector.looksLikeWorktreeFolderName("cursor-worktree-pr-review-c3"))
+        let leftoverRoots = DarwinCollector.leftoverSearchRootCandidates(home: "/Users/alessandro")
+        XCTAssertFalse(leftoverRoots.contains { $0.contains("DerivedData") })
+        XCTAssertTrue(leftoverRoots.contains("/tmp"))
+    }
+
+    func testHandleTimeoutDoesNotReadIdle() {
+        let usage = UsageEvaluator.pathUsage(
+            openHandles: [],
+            lastAccessAt: Date(timeIntervalSince1970: 0),
+            protectedPath: false,
+            handleScanFailed: true
+        )
+        XCTAssertEqual(usage.0, .inUse)
+    }
+
+    @MainActor
+    func testPartialScanPublishesBeforeComplete() {
+        let model = AppModel()
+        model.applyPartial(
+            ScanPartial(snapshot: MockInventory.snapshot(), pending: [.media, .processes])
+        )
+        XCTAssertNotNil(model.snapshot)
+        XCTAssertTrue(model.pendingModules.contains(.media))
+        XCTAssertFalse(model.pendingModules.contains(.leftovers))
     }
 
     func testDesktopMediaCandidateRulesMatchPriorFinds() {

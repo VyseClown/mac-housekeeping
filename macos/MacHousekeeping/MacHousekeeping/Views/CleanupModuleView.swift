@@ -17,8 +17,12 @@ struct CleanupModuleView: View {
             Group {
                 if snapshot.leftovers.isEmpty {
                     EmptyStateView(
-                        title: "No leftovers mapped",
-                        detail: "Investigation folders that match the collector stay here. nightshift and ai-memory never appear."
+                        title: model.pendingModules.contains(.leftovers)
+                            ? "Scanning leftovers"
+                            : "No leftovers mapped",
+                        detail: model.pendingModules.contains(.leftovers)
+                            ? "Cleanup can paint as soon as this folder walk finishes. Media, branches, and processes collect on their own."
+                            : "Investigation folders that match the collector stay here. nightshift and ai-memory never appear."
                     )
                 } else {
                     list

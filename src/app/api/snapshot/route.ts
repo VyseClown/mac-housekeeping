@@ -1,10 +1,18 @@
-import { collectSnapshot } from "@/lib/collect";
+import { collectSnapshot, type SnapshotTab } from "@/lib/collect";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+function parseTab(value: string | null): SnapshotTab {
+  if (value === "cleanup" || value === "processes" || value === "all") {
+    return value;
+  }
+  return "all";
+}
+
+export async function GET(request: Request) {
   try {
-    const snapshot = await collectSnapshot();
+    const tab = parseTab(new URL(request.url).searchParams.get("tab"));
+    const snapshot = await collectSnapshot({ tab });
     return Response.json(snapshot);
   } catch (error) {
     return Response.json(
