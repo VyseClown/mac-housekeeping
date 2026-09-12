@@ -110,16 +110,11 @@ enum DarwinCollector {
     ) -> [Leftover] {
         var paths = Set<String>()
         let desktop = "\(home)/Desktop"
-        if FileManager.default.fileExists(atPath: desktop) {
-            let children = (try? FileManager.default.contentsOfDirectory(atPath: desktop)) ?? []
-            for name in children where !name.hasPrefix(".") {
-                let path = (desktop as NSString).appendingPathComponent(name)
-                var isDir: ObjCBool = false
-                guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
-                    continue
-                }
-                paths.insert(path)
-            }
+        for path in run("find", [desktop, "-maxdepth", "1", "-type", "d"], timeoutSeconds: 20)
+            .split(separator: "\n").map(String.init)
+        {
+            guard path != desktop, !path.isEmpty else { continue }
+            paths.insert(path)
         }
 
         let roots = [
@@ -128,7 +123,7 @@ enum DarwinCollector {
             "\(home)/Library/Developer/Xcode/DerivedData",
             "/tmp",
             "/private/tmp",
-        ].filter { FileManager.default.fileExists(atPath: $0) }
+        ]
 
         if !roots.isEmpty {
             var args = roots + ["-maxdepth", "3", "("]
@@ -137,12 +132,10 @@ enum DarwinCollector {
                 args.append(contentsOf: ["-iname", name])
             }
             args.append(")")
-            for path in run("find", args).split(separator: "\n").map(String.init) {
+            for path in run("find", args + ["-type", "d"], timeoutSeconds: 25)
+                .split(separator: "\n").map(String.init)
+            {
                 guard !path.isEmpty else { continue }
-                var isDir: ObjCBool = false
-                guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
-                    continue
-                }
                 paths.insert(path)
             }
         }
@@ -189,10 +182,6 @@ enum DarwinCollector {
 
     private static func collectMedia(home: String, warnings: inout [String]) -> [MediaEvidence] {
         let desktop = "\(home)/Desktop"
-        guard FileManager.default.fileExists(atPath: desktop) else {
-            warnings.append("Desktop is missing. Media list is empty.")
-            return []
-        }
 
         let mediaPredicate = [
             "(",
@@ -201,16 +190,16 @@ enum DarwinCollector {
             "-o", "-iname", "*.mov", "-o", "-iname", "*.mp4", "-o", "-iname", "*.m4v",
             ")",
         ]
-        let loose = run("find", [desktop, "-maxdepth", "1", "-type", "f"] + mediaPredicate)
+        let loose = run("find", [desktop, "-maxdepth", "1", "-type", "f"] + mediaPredicate, timeoutSeconds: 20)
             .split(separator: "\n").map(String.init).filter { !$0.isEmpty }
         let videos = run("find", [desktop, "-maxdepth", "5", "-type", "f"] + [
             "(", "-iname", "*.mov", "-o", "-iname", "*.mp4", "-o", "-iname", "*.m4v", ")",
-        ])
+        ], timeoutSeconds: 25)
             .split(separator: "\n").map(String.init).filter { !$0.isEmpty }
         let largeImages = run("find", [desktop, "-maxdepth", "5", "-type", "f", "-size", "+400k"] + [
             "(", "-iname", "*.png", "-o", "-iname", "*.jpg", "-o", "-iname", "*.jpeg",
             "-o", "-iname", "*.heic", "-o", "-iname", "*.webp", ")",
-        ])
+        ], timeoutSeconds: 25)
             .split(separator: "\n").map(String.init).filter { !$0.isEmpty }
 
         let candidates = Array(Set(loose + videos + largeImages))
@@ -239,7 +228,7 @@ enum DarwinCollector {
 
         let picked = Array(rankedVideos.prefix(mediaVideoLimit)) + Array(rankedImages.prefix(mediaImageLimit))
         if picked.isEmpty {
-            warnings.append("No Desktop prove or evidence media matched on this Mac.")
+            warnings.append("No Desktop prove or evidence media matched on this Mac. Grant Desktop access if the folder is on this Mac.")
         } else if candidates.count > picked.count {
             warnings.append(
                 "Showing the largest \(picked.count) Desktop leftover images and videos of \(candidates.count) scanned."
@@ -407,7 +396,12 @@ enum DarwinCollector {
             }
             let parent = byPid[row.ppid]
             let parentName = parent.map { (($0.command.split(separator: " ").first.map(String.init) ?? $0.command) as NSString).lastPathComponent } ?? "unknown"
-            let held = filesForPid(row.pid, cleanupPaths: cleanupPaths)
+            let shouldInspect =
+                command.contains("/tmp")
+                || command.contains("/Desktop")
+                || command.contains("investigation")
+                || name.range(of: "QuickTime|QTKit|Preview|ffmpeg|qemu", options: .regularExpression) != nil
+            let held = shouldInspect ? filesForPid(row.pid, cleanupPaths: cleanupPaths) : []
             let category = categoryFor(name: name, command: command)
             let inUseByModels = category == .simulator
             let usage = UsageEvaluator.processUsage(
@@ -512,7 +506,7 @@ enum DarwinCollector {
     }
 
     private static func filesForPid(_ pid: Int, cleanupPaths: [String]) -> [HeldFile] {
-        let output = run("lsof", ["-nP", "-p", String(pid)])
+        let output = run("lsof", ["-nP", "-p", String(pid)], timeoutSeconds: 6)
         var held: [HeldFile] = []
         var seen = Set<String>()
         for line in output.split(separator: "\n").dropFirst() {
@@ -583,7 +577,7 @@ enum DarwinCollector {
     }
 
     private static func handlesFor(_ path: String) -> [OpenHandle] {
-        let output = run("lsof", ["-nP", "--", path])
+        let output = run("lsof", ["-nP", "--", path], timeoutSeconds: 6)
         var handles: [OpenHandle] = []
         for line in output.split(separator: "\n").dropFirst() {
             let parts = line.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
@@ -594,9 +588,8 @@ enum DarwinCollector {
     }
 
     private static func folderSizes(_ root: String) -> [String: Int64] {
-        guard FileManager.default.fileExists(atPath: root) else { return [:] }
         var sizes: [String: Int64] = [:]
-        let output = run("du", ["-d", "1", "-sk", root])
+        let output = run("du", ["-d", "1", "-sk", root], timeoutSeconds: 180)
         for line in output.split(separator: "\n") {
             let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)
             let fallback = line.split(separator: " ", maxSplits: 1).map(String.init)
@@ -608,15 +601,13 @@ enum DarwinCollector {
     }
 
     private static func fileBytes(_ path: String) -> Int64 {
-        let attrs = try? FileManager.default.attributesOfItem(atPath: path)
-        if let size = attrs?[.size] as? NSNumber {
-            return size.int64Value
-        }
-        return pathBytes(path)
+        let output = run("stat", ["-f", "%z", path], timeoutSeconds: 4)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return Int64(output) ?? 0
     }
 
     private static func pathBytes(_ path: String) -> Int64 {
-        let output = run("du", ["-sk", path])
+        let output = run("du", ["-sk", path], timeoutSeconds: 90)
         let kb = Int64(output.split(separator: "\t").first ?? output.split(separator: " ").first ?? "0") ?? 0
         return kb * 1024
     }
@@ -633,7 +624,7 @@ enum DarwinCollector {
     }
 
     @discardableResult
-    private static func run(_ launchPath: String, _ arguments: [String]) -> String {
+    private static func run(_ launchPath: String, _ arguments: [String], timeoutSeconds: Double = 30) -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = [launchPath] + arguments
@@ -642,8 +633,15 @@ enum DarwinCollector {
         process.standardError = Pipe()
         do {
             try process.run()
-            process.waitUntilExit()
         } catch {
+            return ""
+        }
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        if process.isRunning {
+            process.terminate()
             return ""
         }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()

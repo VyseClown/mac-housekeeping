@@ -351,6 +351,9 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Alessandro Gentil";
 				INFOPLIST_KEY_NSHighResolutionCapable = YES;
+				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Housekeeping lists leftover folders and already-used Desktop evidence. Review only.";
+				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "Housekeeping looks for leftover investigation folders in Documents. Review only.";
+				INFOPLIST_KEY_NSDownloadsFolderUsageDescription = "Housekeeping looks for leftover investigation folders in Downloads. Review only.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -377,6 +380,9 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Alessandro Gentil";
 				INFOPLIST_KEY_NSHighResolutionCapable = YES;
+				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Housekeeping lists leftover folders and already-used Desktop evidence. Review only.";
+				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "Housekeeping looks for leftover investigation folders in Documents. Review only.";
+				INFOPLIST_KEY_NSDownloadsFolderUsageDescription = "Housekeeping looks for leftover investigation folders in Downloads. Review only.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
