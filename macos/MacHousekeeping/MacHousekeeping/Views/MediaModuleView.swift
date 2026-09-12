@@ -1,7 +1,7 @@
 import SwiftUI
 #if os(macOS)
 import AppKit
-import AVKit
+import AVFoundation
 #endif
 
 struct MediaModuleView: View {
@@ -140,15 +140,19 @@ struct MediaPreviewStage: View {
 
     var body: some View {
         #if os(macOS)
-        if FileManager.default.fileExists(atPath: item.path) {
-            if item.kind == .image, let nsImage = NSImage(contentsOfFile: item.path) {
-                Image(nsImage: nsImage)
+        if item.kind == .image, let nsImage = NSImage(contentsOfFile: item.path) {
+            Image(nsImage: nsImage)
+                .resizable()
+                .scaledToFill()
+        } else if item.kind == .video, let frame = VideoFrame.image(at: item.path) {
+            ZStack {
+                Image(nsImage: frame)
                     .resizable()
                     .scaledToFill()
-            } else if item.kind == .video {
-                VideoPlayer(player: AVPlayer(url: URL(fileURLWithPath: item.path)))
-            } else {
-                mockArt
+                Image(systemName: "play.circle.fill")
+                    .font(.largeTitle)
+                    .foregroundStyle(.white.opacity(0.92))
+                    .shadow(radius: 8)
             }
         } else {
             mockArt
@@ -180,3 +184,19 @@ struct MediaPreviewStage: View {
         }
     }
 }
+
+#if os(macOS)
+enum VideoFrame {
+    static func image(at path: String) -> NSImage? {
+        let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 960, height: 540)
+        let time = CMTime(seconds: 0.2, preferredTimescale: 600)
+        guard let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) else {
+            return nil
+        }
+        return NSImage(cgImage: cgImage, size: .zero)
+    }
+}
+#endif

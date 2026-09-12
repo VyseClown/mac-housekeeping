@@ -236,7 +236,7 @@ enum DarwinCollector {
         }
 
         return picked.map { path, bytes, video in
-            let handles = handlesFor(path)
+            let handles = video && looseSet.contains(path) ? handlesFor(path) : []
             let access = lastAccess(path)
             let usage = UsageEvaluator.pathUsage(
                 openHandles: handles,
@@ -294,16 +294,16 @@ enum DarwinCollector {
                 let branch = lines.first(where: { $0.hasPrefix("branch ") })
                     .map { String($0.dropFirst("branch ".count)).replacingOccurrences(of: "refs/heads/", with: "") }
                     ?? (lines.contains(where: { $0 == "bare" }) ? "(bare)" : "detached")
-                let handles = handlesFor(path)
+                let leftoverTree = path.contains("/tmp/") || path.contains("/private/tmp/")
+                let handles = leftoverTree ? handlesFor(path) : []
                 let holder = handles.first.map {
                     ProcessRef(pid: $0.pid, name: $0.process, parentName: "unknown")
                 }
                 let usage = UsageEvaluator.pathUsage(
                     openHandles: handles,
-                    lastAccessAt: lastAccess(path),
+                    lastAccessAt: leftoverTree ? lastAccess(path) : Date(),
                     protectedPath: false
                 )
-                let leftoverTree = path.contains("/tmp/") || path.contains("/private/tmp/")
                 workspaces.append(
                     GitWorkspace(
                         id: slug(path),
