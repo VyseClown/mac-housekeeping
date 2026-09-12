@@ -1,37 +1,40 @@
 # Mac Housekeeping
 
-A precise housekeeping tool for Alessandro Gentil’s developer Mac. It is not a generic “clean my Mac” sweeper.
+Native SwiftUI app for Alessandro Gentil’s developer Mac. It maps leftovers, Desktop PR evidence, git worktrees, and holding processes. It is not a generic cleaner and not a wrapped web page.
 
-Two views:
+Open `macos/MacHousekeeping/MacHousekeeping.xcodeproj` on a Mac. The four modules are Cleanup leftovers, Media, Branches and worktrees, and Processes. An Overview ring sits in front of them. PulseNotch’s module split is not applied yet. That remap waits on the observed separation file.
 
-1. **Cleanup** — investigation leftovers and already-used images/videos, with size and usage validation (open handles, last access, parent/holder, idle vs in use).
-2. **Processes** — what is running, which files they hold, and how to localize a process before any kill. Xcode Simulators are listed here.
+`nightshift` and `ai-memory` stay off the cleanup lists. The app never deletes files, never kills a process, never runs `git worktree remove`, and never closes a simulator.
 
-`nightshift` and `ai-memory` were installed on purpose. They are never flagged or deleted.
+## How to run
 
-Nothing deletes, kills, or shuts down a simulator unless you confirm it. Simulators default to list-only. Booted devices are treated as in use by models and cannot be closed from this UI.
-
-## Run locally
-
-```bash
-nvm use 20
-pnpm install
-pnpm dev
-```
-
-The app listens on [http://127.0.0.1:43147](http://127.0.0.1:43147).
+1. On a Mac, open `macos/MacHousekeeping/MacHousekeeping.xcodeproj` in Xcode 15 or later.
+2. Select the MacHousekeeping scheme.
+3. Run. The first scan loads a live Darwin snapshot, or mock inventory if the host is not macOS.
 
 ```bash
-pnpm build
-pnpm start
-pnpm lint
+# Optional, from Xcode or a Mac shell
+xcodebuild -project macos/MacHousekeeping/MacHousekeeping.xcodeproj -scheme MacHousekeeping -destination 'platform=macOS' test
 ```
+
+Linux in this repo cannot compile SwiftUI. Mock sizes are checked with:
+
+```bash
+python3 macos/MacHousekeeping/scripts/verify-inventory.py
+```
+
+## What each module shows
+
+- **Cleanup leftovers.** Investigation folders, sizes, open handles, last access, parent, idle vs in use.
+- **Media.** Desktop prove and evidence images and videos already used on PRs. Thumbnails and in-app preview. Live files load on Darwin. Mock art stands in off-Mac.
+- **Branches and worktrees.** Separate stacked size map. `/tmp` worktrees are the large slice. `git worktree remove` is text only.
+- **Processes.** Holding processes, localize steps, simulator list. Close stays disabled.
 
 ## Data
 
-- **macOS** — live snapshot from `du`, `stat`, `lsof`, `ps`, and `xcrun simctl list`. Only paths that look like investigation leftovers or used media are candidates.
-- **Linux / other** — realistic mock Mac data so the UI is usable off-machine.
+- **macOS.** `du`, `stat`, `lsof`, `ps`, `xcrun simctl list`, `git worktree list`.
+- **Linux / other.** Mock snapshot for Alessandro’s machine: about 28 GiB Desktop evidence and about 23 GiB `/tmp` worktrees.
 
 Force mock on a Mac with `HOUSEKEEPING_FORCE_MOCK=1`.
 
-Cleanup matches names such as `investigation`, `repro-har`, `used-captures`, `used-exports`, and `used-review`. Generic caches are ignored.
+An earlier Next.js slice remains under `src/` as domain reference. Do not ship it as the product.

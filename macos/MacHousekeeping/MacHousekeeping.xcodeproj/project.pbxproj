@@ -1,0 +1,461 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10100000000000000000001 /* MacHousekeepingApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000001 /* MacHousekeepingApp.swift */; };
+		A10100000000000000000002 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000002 /* AppModel.swift */; };
+		A10100000000000000000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000003 /* Models.swift */; };
+		A10100000000000000000004 /* Protection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000004 /* Protection.swift */; };
+		A10100000000000000000005 /* ByteFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000005 /* ByteFormat.swift */; };
+		A10100000000000000000006 /* UsageEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000006 /* UsageEvaluator.swift */; };
+		A10100000000000000000007 /* MockInventory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000007 /* MockInventory.swift */; };
+		A10100000000000000000008 /* DarwinCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000008 /* DarwinCollector.swift */; };
+		A10100000000000000000009 /* SnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000009 /* SnapshotStore.swift */; };
+		A1010000000000000000000A /* Chrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000A /* Chrome.swift */; };
+		A1010000000000000000000B /* SharedChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000B /* SharedChrome.swift */; };
+		A1010000000000000000000C /* SpaceRingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000C /* SpaceRingView.swift */; };
+		A1010000000000000000000D /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000D /* SidebarView.swift */; };
+		A1010000000000000000000E /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000E /* AppShellView.swift */; };
+		A1010000000000000000000F /* OverviewDashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000F /* OverviewDashboard.swift */; };
+		A10100000000000000000010 /* ValidationPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000010 /* ValidationPanel.swift */; };
+		A10100000000000000000011 /* CleanupModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000011 /* CleanupModuleView.swift */; };
+		A10100000000000000000012 /* MediaModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000012 /* MediaModuleView.swift */; };
+		A10100000000000000000013 /* WorktreeModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000013 /* WorktreeModuleView.swift */; };
+		A10100000000000000000014 /* ProcessModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000014 /* ProcessModuleView.swift */; };
+		A10100000000000000000015 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000015 /* Assets.xcassets */; };
+		A10100000000000000000016 /* InventoryInvariantTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000016 /* InventoryInvariantTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A30100000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A40100000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A50100000000000000000001;
+			remoteInfo = MacHousekeeping;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A20100000000000000000001 /* MacHousekeepingApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacHousekeepingApp.swift; sourceTree = "<group>"; };
+		A20100000000000000000002 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		A20100000000000000000003 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A20100000000000000000004 /* Protection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Protection.swift; sourceTree = "<group>"; };
+		A20100000000000000000005 /* ByteFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ByteFormat.swift; sourceTree = "<group>"; };
+		A20100000000000000000006 /* UsageEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageEvaluator.swift; sourceTree = "<group>"; };
+		A20100000000000000000007 /* MockInventory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockInventory.swift; sourceTree = "<group>"; };
+		A20100000000000000000008 /* DarwinCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DarwinCollector.swift; sourceTree = "<group>"; };
+		A20100000000000000000009 /* SnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotStore.swift; sourceTree = "<group>"; };
+		A2010000000000000000000A /* Chrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chrome.swift; sourceTree = "<group>"; };
+		A2010000000000000000000B /* SharedChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedChrome.swift; sourceTree = "<group>"; };
+		A2010000000000000000000C /* SpaceRingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceRingView.swift; sourceTree = "<group>"; };
+		A2010000000000000000000D /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		A2010000000000000000000E /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
+		A2010000000000000000000F /* OverviewDashboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewDashboard.swift; sourceTree = "<group>"; };
+		A20100000000000000000010 /* ValidationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidationPanel.swift; sourceTree = "<group>"; };
+		A20100000000000000000011 /* CleanupModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupModuleView.swift; sourceTree = "<group>"; };
+		A20100000000000000000012 /* MediaModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModuleView.swift; sourceTree = "<group>"; };
+		A20100000000000000000013 /* WorktreeModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreeModuleView.swift; sourceTree = "<group>"; };
+		A20100000000000000000014 /* ProcessModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessModuleView.swift; sourceTree = "<group>"; };
+		A20100000000000000000015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A20100000000000000000016 /* InventoryInvariantTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InventoryInvariantTests.swift; sourceTree = "<group>"; };
+		A20100000000000000000017 /* MacHousekeeping.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacHousekeeping.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20100000000000000000018 /* MacHousekeepingTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacHousekeepingTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A60100000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A60100000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A70100000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A70100000000000000000002 /* MacHousekeeping */,
+				A70100000000000000000003 /* MacHousekeepingTests */,
+				A70100000000000000000004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A70100000000000000000002 /* MacHousekeeping */ = {
+			isa = PBXGroup;
+			children = (
+				A20100000000000000000001 /* MacHousekeepingApp.swift */,
+				A20100000000000000000002 /* AppModel.swift */,
+				A20100000000000000000015 /* Assets.xcassets */,
+				A70100000000000000000005 /* Domain */,
+				A70100000000000000000006 /* Collection */,
+				A70100000000000000000007 /* Theme */,
+				A70100000000000000000008 /* Views */,
+			);
+			path = MacHousekeeping;
+			sourceTree = "<group>";
+		};
+		A70100000000000000000003 /* MacHousekeepingTests */ = {
+			isa = PBXGroup;
+			children = (
+				A20100000000000000000016 /* InventoryInvariantTests.swift */,
+			);
+			path = MacHousekeepingTests;
+			sourceTree = "<group>";
+		};
+		A70100000000000000000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A20100000000000000000017 /* MacHousekeeping.app */,
+				A20100000000000000000018 /* MacHousekeepingTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A70100000000000000000005 /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				A20100000000000000000003 /* Models.swift */,
+				A20100000000000000000004 /* Protection.swift */,
+				A20100000000000000000005 /* ByteFormat.swift */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		A70100000000000000000006 /* Collection */ = {
+			isa = PBXGroup;
+			children = (
+				A20100000000000000000006 /* UsageEvaluator.swift */,
+				A20100000000000000000007 /* MockInventory.swift */,
+				A20100000000000000000008 /* DarwinCollector.swift */,
+				A20100000000000000000009 /* SnapshotStore.swift */,
+			);
+			path = Collection;
+			sourceTree = "<group>";
+		};
+		A70100000000000000000007 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				A2010000000000000000000A /* Chrome.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		A70100000000000000000008 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A2010000000000000000000B /* SharedChrome.swift */,
+				A2010000000000000000000C /* SpaceRingView.swift */,
+				A2010000000000000000000D /* SidebarView.swift */,
+				A2010000000000000000000E /* AppShellView.swift */,
+				A2010000000000000000000F /* OverviewDashboard.swift */,
+				A20100000000000000000010 /* ValidationPanel.swift */,
+				A20100000000000000000011 /* CleanupModuleView.swift */,
+				A20100000000000000000012 /* MediaModuleView.swift */,
+				A20100000000000000000013 /* WorktreeModuleView.swift */,
+				A20100000000000000000014 /* ProcessModuleView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A50100000000000000000001 /* MacHousekeeping */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A80100000000000000000001 /* Build configuration list for PBXNativeTarget "MacHousekeeping" */;
+			buildPhases = (
+				A90100000000000000000001 /* Sources */,
+				A60100000000000000000001 /* Frameworks */,
+				AA0100000000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MacHousekeeping;
+			productName = MacHousekeeping;
+			productReference = A20100000000000000000017 /* MacHousekeeping.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A50100000000000000000002 /* MacHousekeepingTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A80100000000000000000002 /* Build configuration list for PBXNativeTarget "MacHousekeepingTests" */;
+			buildPhases = (
+				A90100000000000000000002 /* Sources */,
+				A60100000000000000000002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AB0100000000000000000001 /* PBXTargetDependency */,
+			);
+			name = MacHousekeepingTests;
+			productName = MacHousekeepingTests;
+			productReference = A20100000000000000000018 /* MacHousekeepingTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A40100000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1540;
+				TargetAttributes = {
+					A50100000000000000000001 = {
+						CreatedOnToolsVersion = 15.4;
+					};
+					A50100000000000000000002 = {
+						CreatedOnToolsVersion = 15.4;
+						TestTargetID = A50100000000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = A80100000000000000000003 /* Build configuration list for PBXProject "MacHousekeeping" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A70100000000000000000001;
+			productRefGroup = A70100000000000000000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A50100000000000000000001 /* MacHousekeeping */,
+				A50100000000000000000002 /* MacHousekeepingTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AA0100000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10100000000000000000015 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A90100000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10100000000000000000001 /* MacHousekeepingApp.swift in Sources */,
+				A10100000000000000000002 /* AppModel.swift in Sources */,
+				A10100000000000000000003 /* Models.swift in Sources */,
+				A10100000000000000000004 /* Protection.swift in Sources */,
+				A10100000000000000000005 /* ByteFormat.swift in Sources */,
+				A10100000000000000000006 /* UsageEvaluator.swift in Sources */,
+				A10100000000000000000007 /* MockInventory.swift in Sources */,
+				A10100000000000000000008 /* DarwinCollector.swift in Sources */,
+				A10100000000000000000009 /* SnapshotStore.swift in Sources */,
+				A1010000000000000000000A /* Chrome.swift in Sources */,
+				A1010000000000000000000B /* SharedChrome.swift in Sources */,
+				A1010000000000000000000C /* SpaceRingView.swift in Sources */,
+				A1010000000000000000000D /* SidebarView.swift in Sources */,
+				A1010000000000000000000E /* AppShellView.swift in Sources */,
+				A1010000000000000000000F /* OverviewDashboard.swift in Sources */,
+				A10100000000000000000010 /* ValidationPanel.swift in Sources */,
+				A10100000000000000000011 /* CleanupModuleView.swift in Sources */,
+				A10100000000000000000012 /* MediaModuleView.swift in Sources */,
+				A10100000000000000000013 /* WorktreeModuleView.swift in Sources */,
+				A10100000000000000000014 /* ProcessModuleView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A90100000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10100000000000000000016 /* InventoryInvariantTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AB0100000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A50100000000000000000001 /* MacHousekeeping */;
+			targetProxy = A30100000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		AC0100000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AC0100000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		AC0100000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Mac Housekeeping";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Alessandro Gentil";
+				INFOPLIST_KEY_NSHighResolutionCapable = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alessandro.MacHousekeeping;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+			};
+			name = Debug;
+		};
+		AC0100000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Mac Housekeeping";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Alessandro Gentil";
+				INFOPLIST_KEY_NSHighResolutionCapable = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alessandro.MacHousekeeping;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+			};
+			name = Release;
+		};
+		AC0100000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alessandro.MacHousekeepingTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MacHousekeeping.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MacHousekeeping";
+			};
+			name = Debug;
+		};
+		AC0100000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alessandro.MacHousekeepingTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MacHousekeeping.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MacHousekeeping";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A80100000000000000000001 /* Build configuration list for PBXNativeTarget "MacHousekeeping" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AC0100000000000000000003 /* Debug */,
+				AC0100000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A80100000000000000000002 /* Build configuration list for PBXNativeTarget "MacHousekeepingTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AC0100000000000000000005 /* Debug */,
+				AC0100000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A80100000000000000000003 /* Build configuration list for PBXProject "MacHousekeeping" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AC0100000000000000000001 /* Debug */,
+				AC0100000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A40100000000000000000001 /* Project object */;
+}
