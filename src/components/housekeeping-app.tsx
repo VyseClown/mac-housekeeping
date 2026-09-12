@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
 import type { ActionResult, Snapshot } from "@/lib/types";
 
@@ -241,52 +241,52 @@ export function HousekeepingApp({
       {status === "loading" && !snapshot ? <LoadingState /> : null}
 
       {snapshot ? (
-        <Tabs
-          value={view}
-          onValueChange={(value) => {
-            if (value === "cleanup" || value === "processes") setView(value);
-          }}
-        >
-          <TabsList className="w-full sm:w-fit">
-            <TabsTrigger value="cleanup">
+        <div className="space-y-4">
+          <div className="inline-flex w-full sm:w-fit items-center rounded-lg bg-muted p-[3px]">
+            <Button
+              type="button"
+              size="sm"
+              variant={view === "cleanup" ? "default" : "ghost"}
+              className={cn("flex-1 sm:flex-none", view === "cleanup" && "shadow-sm")}
+              onClick={() => setView("cleanup")}
+            >
               <FolderSearch data-icon="inline-start" />
               Cleanup
-            </TabsTrigger>
-            <TabsTrigger value="processes">
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={view === "processes" ? "default" : "ghost"}
+              className={cn("flex-1 sm:flex-none", view === "processes" && "shadow-sm")}
+              onClick={() => setView("processes")}
+            >
               <Workflow data-icon="inline-start" />
               Processes
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="cleanup" className="pt-4">
-            {view === "cleanup" ? (
-              <CleanupView
-                snapshot={snapshot}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-                pending={pending}
-                onDelete={(id) => runAction({ type: "delete-item", id })}
-              />
-            ) : null}
-          </TabsContent>
-          <TabsContent value="processes" className="pt-4">
-            {view === "processes" ? (
-              loadingProcesses && !hasProcessesPayload(snapshot) ? (
-                <p className="text-sm text-muted-foreground">Collecting processes…</p>
-              ) : (
-                <ProcessView
-                  snapshot={snapshot}
-                  selectedPid={selectedPid}
-                  onSelect={setSelectedPid}
-                  pending={pending}
-                  onKill={(pid) => runAction({ type: "kill-process", pid })}
-                  onCloseSimulator={(udid) =>
-                    runAction({ type: "close-simulator", udid })
-                  }
-                />
-              )
-            ) : null}
-          </TabsContent>
-        </Tabs>
+            </Button>
+          </div>
+          {view === "cleanup" ? (
+            <CleanupView
+              snapshot={snapshot}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              pending={pending}
+              onDelete={(id) => runAction({ type: "delete-item", id })}
+            />
+          ) : loadingProcesses && !hasProcessesPayload(snapshot) ? (
+            <p className="text-sm text-muted-foreground">Collecting processes…</p>
+          ) : (
+            <ProcessView
+              snapshot={snapshot}
+              selectedPid={selectedPid}
+              onSelect={setSelectedPid}
+              pending={pending}
+              onKill={(pid) => runAction({ type: "kill-process", pid })}
+              onCloseSimulator={(udid) =>
+                runAction({ type: "close-simulator", udid })
+              }
+            />
+          )}
+        </div>
       ) : null}
     </div>
   );
