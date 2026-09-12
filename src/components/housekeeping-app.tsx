@@ -24,14 +24,16 @@ function hasProcessesPayload(snapshot: Snapshot | null): boolean {
 
 export function HousekeepingApp({
   initialSnapshot,
+  initialView = "cleanup",
 }: {
   initialSnapshot?: Snapshot;
+  initialView?: View;
 }) {
   const [status, setStatus] = useState<Status>(initialSnapshot ? "ready" : "loading");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(initialSnapshot ?? null);
-  const [view, setView] = useState<View>("cleanup");
+  const [view, setView] = useState<View>(initialView);
   const [selectedId, setSelectedId] = useState<string | null>(
     initialSnapshot?.cleanupItems[0]?.id ?? null
   );
@@ -242,27 +244,42 @@ export function HousekeepingApp({
 
       {snapshot ? (
         <div className="space-y-4">
-          <div className="inline-flex w-full sm:w-fit items-center rounded-lg bg-muted p-[3px]">
-            <Button
-              type="button"
-              size="sm"
-              variant={view === "cleanup" ? "default" : "ghost"}
-              className={cn("flex-1 sm:flex-none", view === "cleanup" && "shadow-sm")}
-              onClick={() => setView("cleanup")}
-            >
-              <FolderSearch data-icon="inline-start" />
-              Cleanup
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={view === "processes" ? "default" : "ghost"}
-              className={cn("flex-1 sm:flex-none", view === "processes" && "shadow-sm")}
-              onClick={() => setView("processes")}
-            >
-              <Workflow data-icon="inline-start" />
-              Processes
-            </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex w-full sm:w-fit items-center gap-1 rounded-lg bg-muted p-1">
+              <button
+                id="tab-cleanup"
+                type="button"
+                aria-pressed={view === "cleanup"}
+                className={cn(
+                  "inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium sm:flex-none",
+                  view === "cleanup"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setView("cleanup")}
+              >
+                <FolderSearch className="size-4" />
+                Cleanup
+              </button>
+              <button
+                id="tab-processes"
+                type="button"
+                aria-pressed={view === "processes"}
+                className={cn(
+                  "inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium sm:flex-none",
+                  view === "processes"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setView("processes")}
+              >
+                <Workflow className="size-4" />
+                Processes
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground" data-current-view={view}>
+              Now showing: {view === "cleanup" ? "Cleanup leftovers" : "Processes and simulators"}
+            </p>
           </div>
           {view === "cleanup" ? (
             <CleanupView

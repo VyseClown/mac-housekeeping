@@ -47,6 +47,7 @@ export function ProcessView({
 
   return (
     <div className="space-y-4">
+      <h2 className="font-heading text-lg font-medium">Process map</h2>
       <SimulatorList
         simulators={snapshot.simulators}
         pending={pending}
