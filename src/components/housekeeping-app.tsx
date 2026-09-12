@@ -257,8 +257,8 @@ export function HousekeepingApp({
               Processes
             </TabsTrigger>
           </TabsList>
-          {view === "cleanup" ? (
-            <TabsContent value="cleanup" className="pt-4">
+          <TabsContent value="cleanup" className="pt-4">
+            {view === "cleanup" ? (
               <CleanupView
                 snapshot={snapshot}
                 selectedId={selectedId}
@@ -266,10 +266,11 @@ export function HousekeepingApp({
                 pending={pending}
                 onDelete={(id) => runAction({ type: "delete-item", id })}
               />
-            </TabsContent>
-          ) : (
-            <TabsContent value="processes" className="pt-4">
-              {loadingProcesses && !hasProcessesPayload(snapshot) ? (
+            ) : null}
+          </TabsContent>
+          <TabsContent value="processes" className="pt-4">
+            {view === "processes" ? (
+              loadingProcesses && !hasProcessesPayload(snapshot) ? (
                 <p className="text-sm text-muted-foreground">Collecting processes…</p>
               ) : (
                 <ProcessView
@@ -282,9 +283,9 @@ export function HousekeepingApp({
                     runAction({ type: "close-simulator", udid })
                   }
                 />
-              )}
-            </TabsContent>
-          )}
+              )
+            ) : null}
+          </TabsContent>
         </Tabs>
       ) : null}
     </div>
