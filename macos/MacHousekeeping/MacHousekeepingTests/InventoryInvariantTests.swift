@@ -61,14 +61,51 @@ final class InventoryInvariantTests: XCTestCase {
         XCTAssertTrue(DarwinCollector.leftoverNameGlobs.contains("*evidence*"))
         XCTAssertTrue(DarwinCollector.leftoverNameGlobs.contains("*prove*"))
         XCTAssertGreaterThan(DarwinCollector.mediaVideoLimit, 0)
+        XCTAssertEqual(DarwinCollector.mediaVideoLimit, 48)
+        XCTAssertEqual(DarwinCollector.mediaImageLimit, 24)
         let roots = DarwinCollector.repoSearchRoots(home: "/Users/alessandro")
-        XCTAssertTrue(roots.contains("/tmp"))
+        XCTAssertFalse(roots.contains("/tmp"))
+        XCTAssertFalse(roots.contains("/private/tmp"))
         XCTAssertTrue(roots.contains("/Users/alessandro/work"))
+        XCTAssertTrue(roots.contains("/Users/alessandro/Developer"))
+    }
+
+    func testDesktopMediaCandidateRulesMatchPriorFinds() {
+        XCTAssertTrue(DarwinCollector.isDesktopMediaCandidate(depth: 1, bytes: 100, video: true, image: false))
+        XCTAssertTrue(DarwinCollector.isDesktopMediaCandidate(depth: 5, bytes: 100, video: true, image: false))
+        XCTAssertFalse(DarwinCollector.isDesktopMediaCandidate(depth: 6, bytes: 100, video: true, image: false))
+        XCTAssertTrue(DarwinCollector.isDesktopMediaCandidate(depth: 1, bytes: 100, video: false, image: true))
+        XCTAssertFalse(DarwinCollector.isDesktopMediaCandidate(depth: 2, bytes: 100, video: false, image: true))
+        XCTAssertTrue(DarwinCollector.isDesktopMediaCandidate(depth: 2, bytes: 400 * 1024 + 1, video: false, image: true))
+        XCTAssertFalse(DarwinCollector.isDesktopMediaCandidate(depth: 2, bytes: 400 * 1024, video: false, image: true))
+    }
+
+    func testUniqueExistingPathsDedupsAndDropsMissing() {
+        let paths = DarwinCollector.uniqueExistingPaths([
+            "/tmp",
+            "/tmp",
+            "/definitely-missing-housekeeping-\(UUID().uuidString)",
+        ])
+        XCTAssertEqual(paths, ["/tmp"])
+    }
+
+    @MainActor
+    func testShowReplacesFocusInOneMutation() {
+        let model = AppModel()
+        model.focus.leftoverID = "keep-me"
+        model.focus.mediaID = "also"
+        model.show(.media)
+        XCTAssertEqual(model.focus, DashboardFocus(module: .media))
     }
 
     func testHyphenatedNightShiftStaysProtected() {
         XCTAssertTrue(Protection.blocks("/Users/alessandro/work/personal/night-shift-engine"))
         XCTAssertTrue(Protection.blocksProcess(name: "bash", command: "bash scripts/night-shift.sh --dry-run"))
         XCTAssertTrue(Protection.blocks("/Users/alessandro/Library/Application Support/ai-memory"))
+    }
+
+    func testProtectedNamesStayOutOfCleanupMatchers() {
+        XCTAssertFalse(DarwinCollector.looksLikeLeftoverName("nightshift"))
+        XCTAssertFalse(DarwinCollector.looksLikeLeftoverName("ai-memory"))
     }
 }

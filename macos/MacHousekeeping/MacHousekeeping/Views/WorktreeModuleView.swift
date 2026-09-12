@@ -29,7 +29,7 @@ struct WorktreeModuleView: View {
                 }
             }
             .navigationTitle("Branches and worktrees")
-            .navigationDestination(item: $model.selectedWorkspaceID) { id in
+            .navigationDestination(item: $model.focus.workspaceID) { id in
                 if let item = snapshot.workspaces.first(where: { $0.id == id }) {
                     detail(item)
                 }
@@ -39,7 +39,7 @@ struct WorktreeModuleView: View {
 
     private var list: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 Text("Worktree space")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Chrome.text)
@@ -49,11 +49,15 @@ struct WorktreeModuleView: View {
                 stackedBar
                 sectionTitle("Worktrees")
                 ForEach(worktrees) { item in
-                    workspaceRow(item)
+                    WorkspaceRow(item: item) {
+                        model.focus.workspaceID = item.id
+                    }
                 }
                 sectionTitle("Local branches")
                 ForEach(branches) { item in
-                    workspaceRow(item)
+                    WorkspaceRow(item: item) {
+                        model.focus.workspaceID = item.id
+                    }
                 }
             }
             .padding(22)
@@ -68,7 +72,7 @@ struct WorktreeModuleView: View {
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .fill(item.usage == .inUse ? Chrome.amber : Chrome.worktreeHue)
                         .frame(width: width)
-                        .onTapGesture { model.selectedWorkspaceID = item.id }
+                        .onTapGesture { model.focus.workspaceID = item.id }
                 }
             }
         }
@@ -84,44 +88,10 @@ struct WorktreeModuleView: View {
             .padding(.top, 8)
     }
 
-    private func workspaceRow(_ item: GitWorkspace) -> some View {
-        Button {
-            model.selectedWorkspaceID = item.id
-        } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(item.name)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Chrome.text)
-                    Text(item.path)
-                        .font(.caption)
-                        .foregroundStyle(Chrome.muted)
-                        .lineLimit(1)
-                    Text("\(item.repoName) · \(item.repoRoot)")
-                        .font(.caption2)
-                        .foregroundStyle(Chrome.faint)
-                        .lineLimit(1)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(item.kind == .worktree ? ByteFormat.string(item.bytes) : "shared objects")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Chrome.text)
-                    UsageBadge(usage: item.usage)
-                }
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(Chrome.faint)
-            }
-            .padding(12)
-            .housekeepingCard()
-        }
-        .buttonStyle(.plain)
-    }
-
     private func detail(_ item: GitWorkspace) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Button("← Back") { model.selectedWorkspaceID = nil }
+                Button("← Back") { model.focus.workspaceID = nil }
                     .buttonStyle(QuietButtonStyle())
                 Text(item.name)
                     .font(.title3.weight(.semibold))
@@ -155,5 +125,46 @@ struct WorktreeModuleView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .navigationTitle("Worktree")
+    }
+}
+
+struct WorkspaceRow: View, Equatable {
+    var item: GitWorkspace
+    var action: () -> Void
+
+    static func == (lhs: WorkspaceRow, rhs: WorkspaceRow) -> Bool {
+        lhs.item == rhs.item
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(item.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Chrome.text)
+                    Text(item.path)
+                        .font(.caption)
+                        .foregroundStyle(Chrome.muted)
+                        .lineLimit(1)
+                    Text("\(item.repoName) · \(item.repoRoot)")
+                        .font(.caption2)
+                        .foregroundStyle(Chrome.faint)
+                        .lineLimit(1)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(item.kind == .worktree ? ByteFormat.string(item.bytes) : "shared objects")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Chrome.text)
+                    UsageBadge(usage: item.usage)
+                }
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(Chrome.faint)
+            }
+            .padding(12)
+            .housekeepingCard()
+        }
+        .buttonStyle(.plain)
     }
 }

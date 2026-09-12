@@ -6,6 +6,13 @@ struct AppShellView: View {
     var body: some View {
         VStack(spacing: 0) {
             topBar
+            if model.isScanning, model.snapshot != nil {
+                ProgressView()
+                    .progressViewStyle(.linear)
+                    .tint(Chrome.accent)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 4)
+            }
             if let banner = model.banner {
                 Text(banner)
                     .font(.caption)
@@ -32,11 +39,12 @@ struct AppShellView: View {
                     .font(.headline)
                     .foregroundStyle(Chrome.text)
             }
-            TabChrome(model: model)
+            TabChrome(module: model.focus.module, onSelect: model.show)
             Spacer()
-            NotchCompanion(snapshot: model.snapshot)
-            Button("Scan leftovers") { model.scan() }
+            NotchCompanion(snapshot: model.snapshot, scanning: model.isScanning)
+            Button(model.isScanning ? "Scanning…" : "Scan leftovers") { model.scan() }
                 .buttonStyle(PrimaryButtonStyle())
+                .disabled(model.isScanning)
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 14)
@@ -51,7 +59,7 @@ struct AppShellView: View {
         case .failed(let message):
             FailedStateView(message: message, retry: model.scan)
         case .ready(let snapshot):
-            switch model.module {
+            switch model.focus.module {
             case .leftovers:
                 CleanupModuleView(model: model, snapshot: snapshot)
             case .media:

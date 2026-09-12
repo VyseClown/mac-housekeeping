@@ -25,7 +25,7 @@ struct CleanupModuleView: View {
                 }
             }
             .navigationTitle("Cleanup leftovers")
-            .navigationDestination(item: $model.selectedLeftoverID) { id in
+            .navigationDestination(item: $model.focus.leftoverID) { id in
                 if let leftover = snapshot.leftovers.first(where: { $0.id == id }) {
                     leftoverDetail(leftover)
                 }
@@ -35,7 +35,7 @@ struct CleanupModuleView: View {
 
     private var list: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 HStack(alignment: .center, spacing: 28) {
                     SpaceRingView(
                         idle: idleBytes,
@@ -55,38 +55,9 @@ struct CleanupModuleView: View {
                     Spacer()
                 }
                 ForEach(snapshot.leftovers) { leftover in
-                    Button {
-                        model.selectedLeftoverID = leftover.id
-                    } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: leftover.kind == .investigation ? "folder.fill" : "photo")
-                                .foregroundStyle(Chrome.leftoversHue)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text((leftover.path as NSString).lastPathComponent)
-                                    .font(.headline)
-                                    .foregroundStyle(Chrome.text)
-                                Text(leftover.path)
-                                    .font(.caption)
-                                    .foregroundStyle(Chrome.muted)
-                                    .lineLimit(1)
-                                HStack(spacing: 8) {
-                                    Text(ByteFormat.string(leftover.bytes))
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Chrome.text)
-                                    Text("\(leftover.openHandles.count) handles")
-                                        .font(.caption)
-                                        .foregroundStyle(Chrome.faint)
-                                    UsageBadge(usage: leftover.usage)
-                                }
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(Chrome.faint)
-                        }
-                        .padding(12)
-                        .housekeepingCard()
+                    LeftoverRow(leftover: leftover) {
+                        model.focus.leftoverID = leftover.id
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(22)
@@ -96,7 +67,7 @@ struct CleanupModuleView: View {
     private func leftoverDetail(_ leftover: Leftover) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Button("← Back") { model.selectedLeftoverID = nil }
+                Button("← Back") { model.focus.leftoverID = nil }
                     .buttonStyle(QuietButtonStyle())
                 Text((leftover.path as NSString).lastPathComponent)
                     .font(.title2.weight(.semibold))
@@ -133,5 +104,47 @@ struct CleanupModuleView: View {
         }
         .navigationTitle("Leftover")
         .navigationBarBackButtonHidden(false)
+    }
+}
+
+struct LeftoverRow: View, Equatable {
+    var leftover: Leftover
+    var action: () -> Void
+
+    static func == (lhs: LeftoverRow, rhs: LeftoverRow) -> Bool {
+        lhs.leftover == rhs.leftover
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: leftover.kind == .investigation ? "folder.fill" : "photo")
+                    .foregroundStyle(Chrome.leftoversHue)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text((leftover.path as NSString).lastPathComponent)
+                        .font(.headline)
+                        .foregroundStyle(Chrome.text)
+                    Text(leftover.path)
+                        .font(.caption)
+                        .foregroundStyle(Chrome.muted)
+                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        Text(ByteFormat.string(leftover.bytes))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Chrome.text)
+                        Text("\(leftover.openHandles.count) handles")
+                            .font(.caption)
+                            .foregroundStyle(Chrome.faint)
+                        UsageBadge(usage: leftover.usage)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(Chrome.faint)
+            }
+            .padding(12)
+            .housekeepingCard()
+        }
+        .buttonStyle(.plain)
     }
 }

@@ -27,9 +27,27 @@ enum DarwinCollector {
             "\(home)/Developer",
             "\(home)/Projects",
             "\(home)/code",
-            "/tmp",
-            "/private/tmp",
         ]
+    }
+
+    static func isDesktopMediaCandidate(depth: Int, bytes: Int64, video: Bool, image: Bool) -> Bool {
+        if video && depth <= 5 { return true }
+        if (video || image) && depth == 1 { return true }
+        if image && depth <= 5 && bytes > 400 * 1024 { return true }
+        return false
+    }
+
+    static func uniqueExistingPaths(_ paths: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for path in paths {
+            guard FileManager.default.fileExists(atPath: path) else { continue }
+            let resolved = (path as NSString).resolvingSymlinksInPath
+            if seen.contains(resolved) { continue }
+            seen.insert(resolved)
+            result.append(path)
+        }
+        return result
     }
 
     static func isDarwin() -> Bool {
@@ -53,10 +71,17 @@ enum DarwinCollector {
         let hostname = run("scutil", ["--get", "ComputerName"]).trimmingCharacters(in: .whitespacesAndNewlines)
         let osVersion = run("sw_vers", ["-productVersion"]).trimmingCharacters(in: .whitespacesAndNewlines)
 
+        let desktop = "\(home)/Desktop"
+        let desktopWalk = walkDesktop(desktop)
         let workspaces = collectWorkspaces(home: home, warnings: &warnings)
         let worktreePaths = Set(workspaces.filter { $0.kind == .worktree }.map(\.path))
-        let leftovers = collectLeftovers(home: home, excluding: worktreePaths, warnings: &warnings)
-        let media = collectMedia(home: home, warnings: &warnings)
+        let leftovers = collectLeftovers(
+            home: home,
+            desktopWalk: desktopWalk,
+            excluding: worktreePaths,
+            warnings: &warnings
+        )
+        let media = collectMedia(desktopWalk: desktopWalk, warnings: &warnings)
         let processes = collectProcesses(cleanupPaths: leftovers.map(\.path) + media.map(\.path), warnings: &warnings)
         let simulators = collectSimulators(warnings: &warnings)
         let keeps = Protection.keeps(home: home).map { keep in
@@ -105,25 +130,18 @@ enum DarwinCollector {
 
     private static func collectLeftovers(
         home: String,
+        desktopWalk: DesktopInventory,
         excluding worktreePaths: Set<String>,
         warnings: inout [String]
     ) -> [Leftover] {
-        var paths = Set<String>()
-        let desktop = "\(home)/Desktop"
-        for path in run("find", [desktop, "-maxdepth", "1", "-type", "d"], timeoutSeconds: 20)
-            .split(separator: "\n").map(String.init)
-        {
-            guard path != desktop, !path.isEmpty else { continue }
-            paths.insert(path)
-        }
-
-        let roots = [
+        var paths = Set(desktopWalk.topLevelDirectories)
+        let roots = uniqueExistingPaths([
             "\(home)/Downloads",
             "\(home)/Documents",
             "\(home)/Library/Developer/Xcode/DerivedData",
             "/tmp",
             "/private/tmp",
-        ]
+        ])
 
         if !roots.isEmpty {
             var args = roots + ["-maxdepth", "3", "("]
@@ -154,7 +172,8 @@ enum DarwinCollector {
             warnings.append("No leftover folders matched on this Mac.")
         }
 
-        let desktopSizes = folderSizes(desktop)
+        let desktopRoot = desktopWalk.root
+        let desktopPrefix = desktopRoot.hasSuffix("/") ? desktopRoot : desktopRoot + "/"
         return found.map { path in
             let handles = handlesFor(path)
             let access = lastAccess(path)
@@ -163,7 +182,15 @@ enum DarwinCollector {
                 lastAccessAt: access,
                 protectedPath: false
             )
-            let bytes = desktopSizes[path] ?? desktopSizes[(path as NSString).resolvingSymlinksInPath] ?? pathBytes(path)
+            let onDesktop = path == desktopRoot || path.hasPrefix(desktopPrefix)
+            let bytes: Int64
+            if onDesktop {
+                bytes = desktopWalk.directoryBytes[path]
+                    ?? desktopWalk.directoryBytes[(path as NSString).resolvingSymlinksInPath]
+                    ?? 0
+            } else {
+                bytes = pathBytes(path)
+            }
             return Leftover(
                 id: slug(path),
                 path: path,
@@ -180,50 +207,19 @@ enum DarwinCollector {
         .sorted { $0.bytes > $1.bytes }
     }
 
-    private static func collectMedia(home: String, warnings: inout [String]) -> [MediaEvidence] {
-        let desktop = "\(home)/Desktop"
-
-        let mediaPredicate = [
-            "(",
-            "-iname", "*.png", "-o", "-iname", "*.jpg", "-o", "-iname", "*.jpeg",
-            "-o", "-iname", "*.heic", "-o", "-iname", "*.webp",
-            "-o", "-iname", "*.mov", "-o", "-iname", "*.mp4", "-o", "-iname", "*.m4v",
-            ")",
-        ]
-        let loose = run("find", [desktop, "-maxdepth", "1", "-type", "f"] + mediaPredicate, timeoutSeconds: 20)
-            .split(separator: "\n").map(String.init).filter { !$0.isEmpty }
-        let videos = run("find", [desktop, "-maxdepth", "5", "-type", "f"] + [
-            "(", "-iname", "*.mov", "-o", "-iname", "*.mp4", "-o", "-iname", "*.m4v", ")",
-        ], timeoutSeconds: 25)
-            .split(separator: "\n").map(String.init).filter { !$0.isEmpty }
-        let largeImages = run("find", [desktop, "-maxdepth", "5", "-type", "f", "-size", "+400k"] + [
-            "(", "-iname", "*.png", "-o", "-iname", "*.jpg", "-o", "-iname", "*.jpeg",
-            "-o", "-iname", "*.heic", "-o", "-iname", "*.webp", ")",
-        ], timeoutSeconds: 25)
-            .split(separator: "\n").map(String.init).filter { !$0.isEmpty }
-
-        let candidates = Array(Set(loose + videos + largeImages))
-            .filter { !Protection.blocks($0) }
-            .map { path -> (String, Int64, Bool) in
-                (path, fileBytes(path), isVideo(path))
-            }
-
-        let looseSet = Set(loose)
+    private static func collectMedia(desktopWalk: DesktopInventory, warnings: inout [String]) -> [MediaEvidence] {
+        let candidates = desktopWalk.media.filter { !Protection.blocks($0.path) }
         let rankedVideos = candidates
-            .filter(\.2)
+            .filter(\.video)
             .sorted { lhs, rhs in
-                let leftLoose = looseSet.contains(lhs.0)
-                let rightLoose = looseSet.contains(rhs.0)
-                if leftLoose != rightLoose { return leftLoose }
-                return lhs.1 > rhs.1
+                if lhs.loose != rhs.loose { return lhs.loose }
+                return lhs.bytes > rhs.bytes
             }
         let rankedImages = candidates
-            .filter { !$0.2 }
+            .filter { !$0.video }
             .sorted { lhs, rhs in
-                let leftLoose = looseSet.contains(lhs.0)
-                let rightLoose = looseSet.contains(rhs.0)
-                if leftLoose != rightLoose { return leftLoose }
-                return lhs.1 > rhs.1
+                if lhs.loose != rhs.loose { return lhs.loose }
+                return lhs.bytes > rhs.bytes
             }
 
         let picked = Array(rankedVideos.prefix(mediaVideoLimit)) + Array(rankedImages.prefix(mediaImageLimit))
@@ -235,30 +231,30 @@ enum DarwinCollector {
             )
         }
 
-        return picked.map { path, bytes, video in
-            let handles = video && looseSet.contains(path) ? handlesFor(path) : []
-            let access = lastAccess(path)
+        return picked.map { hit in
+            let handles = hit.video && hit.loose ? handlesFor(hit.path) : []
+            let access = hit.accessed
             let usage = UsageEvaluator.pathUsage(
                 openHandles: handles,
                 lastAccessAt: access,
                 protectedPath: false
             )
-            let filename = (path as NSString).lastPathComponent
+            let filename = (hit.path as NSString).lastPathComponent
             let holder = handles.first.map {
                 ProcessRef(pid: $0.pid, name: $0.process, parentName: "unknown")
             }
             return MediaEvidence(
-                id: slug(path),
-                path: path,
+                id: slug(hit.path),
+                path: hit.path,
                 filename: filename,
-                kind: video ? .video : .image,
-                bytes: bytes,
+                kind: hit.video ? .video : .image,
+                bytes: hit.bytes,
                 lastAccessAt: access,
                 lastAccessSource: "stat",
                 usage: usage.0,
                 usageReason: usage.1,
                 alreadyUsedOnPR: true,
-                pullRequest: inferredPR(path),
+                pullRequest: inferredPR(hit.path),
                 holder: holder,
                 caption: "Already-used Desktop evidence. Eligible only after usage validates idle."
             )
@@ -268,62 +264,29 @@ enum DarwinCollector {
     private static func collectWorkspaces(home: String, warnings: inout [String]) -> [GitWorkspace] {
         let repoRoots = discoverRepos(home: home)
         if repoRoots.isEmpty {
-            warnings.append("No git repositories found under the home folder or /tmp.")
+            warnings.append("No git repositories found under the home project folders.")
         }
 
         var workspaces: [GitWorkspace] = []
         var seenPaths = Set<String>()
+        var seenGitDirs = Set<String>()
 
         for repo in repoRoots {
             if Protection.blocks(repo) { continue }
             let gitEntry = (repo as NSString).appendingPathComponent(".git")
-            var gitIsDir: ObjCBool = false
-            let gitIsDirectory = FileManager.default.fileExists(atPath: gitEntry, isDirectory: &gitIsDir) && gitIsDir.boolValue
-            guard gitIsDirectory else { continue }
+            guard FileManager.default.fileExists(atPath: gitEntry) else { continue }
+            if let gitdir = resolvedGitDir(repo) {
+                if seenGitDirs.contains(gitdir) { continue }
+                seenGitDirs.insert(gitdir)
+            }
 
             let porcelain = run("git", ["-C", repo, "worktree", "list", "--porcelain"])
-            let blocks = porcelain.components(separatedBy: "\n\n")
-            for block in blocks {
-                let lines = block.split(separator: "\n").map(String.init)
-                guard let worktreeLine = lines.first(where: { $0.hasPrefix("worktree ") }) else { continue }
-                let path = String(worktreeLine.dropFirst("worktree ".count))
-                let resolved = (path as NSString).resolvingSymlinksInPath
-                if seenPaths.contains(path) || seenPaths.contains(resolved) || Protection.blocks(path) { continue }
-                seenPaths.insert(path)
-                seenPaths.insert(resolved)
-                let branch = lines.first(where: { $0.hasPrefix("branch ") })
-                    .map { String($0.dropFirst("branch ".count)).replacingOccurrences(of: "refs/heads/", with: "") }
-                    ?? (lines.contains(where: { $0 == "bare" }) ? "(bare)" : "detached")
-                let leftoverTree = path.contains("/tmp/") || path.contains("/private/tmp/")
-                let handles = leftoverTree ? handlesFor(path) : []
-                let holder = handles.first.map {
-                    ProcessRef(pid: $0.pid, name: $0.process, parentName: "unknown")
-                }
-                let usage = UsageEvaluator.pathUsage(
-                    openHandles: handles,
-                    lastAccessAt: leftoverTree ? lastAccess(path) : Date(),
-                    protectedPath: false
-                )
-                workspaces.append(
-                    GitWorkspace(
-                        id: slug(path),
-                        kind: .worktree,
-                        name: branch,
-                        path: path,
-                        repoName: (repo as NSString).lastPathComponent,
-                        repoRoot: repo,
-                        bytes: leftoverTree ? pathBytes(path) : 0,
-                        usage: usage.0,
-                        usageReason: leftoverTree
-                            ? usage.1
-                            : "Active checkout. Listed for review; size is left on the leftover /tmp slice.",
-                        holdingProcess: holder,
-                        suggestedAction: leftoverTree
-                            ? .removeWorktreeLater(command: "git worktree remove \(path)")
-                            : .none
-                    )
-                )
-            }
+            appendWorktrees(
+                from: porcelain,
+                repo: repo,
+                seenPaths: &seenPaths,
+                into: &workspaces
+            )
 
             let branches = run("git", ["-C", repo, "for-each-ref", "--format=%(refname:short)", "refs/heads"])
                 .split(separator: "\n")
@@ -348,6 +311,19 @@ enum DarwinCollector {
                         suggestedAction: .deleteBranchLater(command: "git branch -d \(branch)")
                     )
                 )
+            }
+        }
+
+        for orphan in tmpWorktreeOrphans(excluding: seenPaths) {
+            if let gitdir = resolvedGitDir(orphan) {
+                if seenGitDirs.contains(gitdir) { continue }
+                seenGitDirs.insert(gitdir)
+            }
+            let porcelain = run("git", ["-C", orphan, "worktree", "list", "--porcelain"])
+            if porcelain.isEmpty {
+                appendLeftoverWorktree(path: orphan, repo: orphan, branch: (orphan as NSString).lastPathComponent, seenPaths: &seenPaths, into: &workspaces)
+            } else {
+                appendWorktrees(from: porcelain, repo: orphan, seenPaths: &seenPaths, into: &workspaces)
             }
         }
 
@@ -488,8 +464,7 @@ enum DarwinCollector {
     }
 
     private static func discoverRepos(home: String) -> [String] {
-        let roots = repoSearchRoots(home: home)
-            .filter { FileManager.default.fileExists(atPath: $0) }
+        let roots = uniqueExistingPaths(repoSearchRoots(home: home))
         guard !roots.isEmpty else { return [] }
         let output = run("find", roots + ["-maxdepth", "5", "-name", ".git"])
         var repos: [String] = []
@@ -503,6 +478,103 @@ enum DarwinCollector {
             }
         }
         return Array(Set(repos)).sorted()
+    }
+
+    private static func tmpWorktreeOrphans(excluding seen: Set<String>) -> [String] {
+        var orphans: [String] = []
+        for root in uniqueExistingPaths(["/tmp", "/private/tmp"]) {
+            guard let names = try? FileManager.default.contentsOfDirectory(atPath: root) else { continue }
+            for name in names {
+                let path = (root as NSString).appendingPathComponent(name)
+                var isDir: ObjCBool = false
+                guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else { continue }
+                let git = (path as NSString).appendingPathComponent(".git")
+                guard FileManager.default.fileExists(atPath: git) else { continue }
+                if Protection.blocks(path) { continue }
+                let resolved = (path as NSString).resolvingSymlinksInPath
+                if seen.contains(path) || seen.contains(resolved) { continue }
+                orphans.append(path)
+            }
+        }
+        return orphans
+    }
+
+    private static func appendWorktrees(
+        from porcelain: String,
+        repo: String,
+        seenPaths: inout Set<String>,
+        into workspaces: inout [GitWorkspace]
+    ) {
+        let blocks = porcelain.components(separatedBy: "\n\n")
+        for block in blocks {
+            let lines = block.split(separator: "\n").map(String.init)
+            guard let worktreeLine = lines.first(where: { $0.hasPrefix("worktree ") }) else { continue }
+            let path = String(worktreeLine.dropFirst("worktree ".count))
+            let branch = lines.first(where: { $0.hasPrefix("branch ") })
+                .map { String($0.dropFirst("branch ".count)).replacingOccurrences(of: "refs/heads/", with: "") }
+                ?? (lines.contains(where: { $0 == "bare" }) ? "(bare)" : "detached")
+            appendLeftoverWorktree(path: path, repo: repo, branch: branch, seenPaths: &seenPaths, into: &workspaces)
+        }
+    }
+
+    private static func appendLeftoverWorktree(
+        path: String,
+        repo: String,
+        branch: String,
+        seenPaths: inout Set<String>,
+        into workspaces: inout [GitWorkspace]
+    ) {
+        let resolved = (path as NSString).resolvingSymlinksInPath
+        if seenPaths.contains(path) || seenPaths.contains(resolved) || Protection.blocks(path) { return }
+        seenPaths.insert(path)
+        seenPaths.insert(resolved)
+        let leftoverTree = path.contains("/tmp/") || path.contains("/private/tmp/")
+        let handles = leftoverTree ? handlesFor(path) : []
+        let holder = handles.first.map {
+            ProcessRef(pid: $0.pid, name: $0.process, parentName: "unknown")
+        }
+        let usage = UsageEvaluator.pathUsage(
+            openHandles: handles,
+            lastAccessAt: leftoverTree ? lastAccess(path) : Date(),
+            protectedPath: false
+        )
+        workspaces.append(
+            GitWorkspace(
+                id: slug(path),
+                kind: .worktree,
+                name: branch,
+                path: path,
+                repoName: (repo as NSString).lastPathComponent,
+                repoRoot: repo,
+                bytes: leftoverTree ? pathBytes(path) : 0,
+                usage: usage.0,
+                usageReason: leftoverTree
+                    ? usage.1
+                    : "Active checkout. Listed for review; size is left on the leftover /tmp slice.",
+                holdingProcess: holder,
+                suggestedAction: leftoverTree
+                    ? .removeWorktreeLater(command: "git worktree remove \(path)")
+                    : .none
+            )
+        )
+    }
+
+    private static func resolvedGitDir(_ repo: String) -> String? {
+        let git = (repo as NSString).appendingPathComponent(".git")
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: git, isDirectory: &isDir) else { return nil }
+        if isDir.boolValue {
+            return (git as NSString).resolvingSymlinksInPath
+        }
+        guard let text = try? String(contentsOfFile: git, encoding: .utf8) else { return nil }
+        for line in text.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.lowercased().hasPrefix("gitdir:") {
+                let raw = trimmed.dropFirst("gitdir:".count).trimmingCharacters(in: .whitespaces)
+                return (raw as NSString).resolvingSymlinksInPath
+            }
+        }
+        return nil
     }
 
     private static func filesForPid(_ pid: Int, cleanupPaths: [String]) -> [HeldFile] {
@@ -558,7 +630,11 @@ enum DarwinCollector {
     }
 
     private static func isMediaPath(_ path: String) -> Bool {
-        isVideo(path) || path.range(of: "\\.(png|jpe?g|heic|webp)$", options: [.regularExpression, .caseInsensitive]) != nil
+        isVideo(path) || isImage(path)
+    }
+
+    private static func isImage(_ path: String) -> Bool {
+        path.range(of: "\\.(png|jpe?g|heic|webp)$", options: [.regularExpression, .caseInsensitive]) != nil
     }
 
     private static func isVideo(_ path: String) -> Bool {
@@ -587,23 +663,61 @@ enum DarwinCollector {
         return handles
     }
 
-    private static func folderSizes(_ root: String) -> [String: Int64] {
-        var sizes: [String: Int64] = [:]
-        let output = run("du", ["-d", "1", "-sk", root], timeoutSeconds: 180)
-        for line in output.split(separator: "\n") {
-            let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)
-            let fallback = line.split(separator: " ", maxSplits: 1).map(String.init)
-            let cols = parts.count == 2 ? parts : fallback
-            guard cols.count == 2, let kb = Int64(cols[0]) else { continue }
-            sizes[cols[1]] = kb * 1024
-        }
-        return sizes
-    }
+    private static func walkDesktop(_ desktop: String) -> DesktopInventory {
+        var inventory = DesktopInventory(root: desktop, topLevelDirectories: [], directoryBytes: [:], media: [])
+        guard FileManager.default.fileExists(atPath: desktop) else { return inventory }
 
-    private static func fileBytes(_ path: String) -> Int64 {
-        let output = run("stat", ["-f", "%z", path], timeoutSeconds: 4)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return Int64(output) ?? 0
+        let keys: [URLResourceKey] = [
+            .isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey, .fileSizeKey, .contentAccessDateKey,
+        ]
+        let rootURL = URL(fileURLWithPath: desktop, isDirectory: true)
+        guard let enumerator = FileManager.default.enumerator(
+            at: rootURL,
+            includingPropertiesForKeys: keys,
+            options: [.skipsHiddenFiles]
+        ) else { return inventory }
+
+        let prefix = desktop.hasSuffix("/") ? desktop : desktop + "/"
+        while let url = enumerator.nextObject() as? URL {
+            let path = url.path
+            guard path.hasPrefix(prefix) else { continue }
+            let relative = String(path.dropFirst(prefix.count))
+            guard !relative.isEmpty else { continue }
+            let depth = relative.split(separator: "/").count
+            let values = try? url.resourceValues(forKeys: Set(keys))
+            let isDir = values?.isDirectory == true
+            let isLink = values?.isSymbolicLink == true
+
+            if isDir && depth == 1 {
+                inventory.topLevelDirectories.append(path)
+            }
+            if isDir && isLink {
+                enumerator.skipDescendants()
+                continue
+            }
+            if isDir { continue }
+
+            let bytes = Int64(values?.fileSize ?? 0)
+            if let top = relative.split(separator: "/").first {
+                let topPath = prefix + String(top)
+                inventory.directoryBytes[topPath, default: 0] += bytes
+            }
+
+            let video = isVideo(path)
+            let image = isImage(path)
+            if isDesktopMediaCandidate(depth: depth, bytes: bytes, video: video, image: image) {
+                inventory.media.append(
+                    DesktopMediaHit(
+                        path: path,
+                        bytes: bytes,
+                        video: video,
+                        loose: depth == 1,
+                        accessed: values?.contentAccessDate ?? Date(timeIntervalSince1970: 0)
+                    )
+                )
+            }
+        }
+        return inventory
     }
 
     private static func pathBytes(_ path: String) -> Int64 {
@@ -628,23 +742,62 @@ enum DarwinCollector {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = [launchPath] + arguments
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
+        let stdout = Pipe()
+        process.standardOutput = stdout
+        process.standardError = FileHandle.nullDevice
+
+        let buffer = NSMutableData()
+        let lock = NSLock()
+        stdout.fileHandleForReading.readabilityHandler = { handle in
+            let chunk = handle.availableData
+            if chunk.isEmpty {
+                handle.readabilityHandler = nil
+                return
+            }
+            lock.lock()
+            buffer.append(chunk)
+            lock.unlock()
+        }
+
         do {
             try process.run()
         } catch {
+            stdout.fileHandleForReading.readabilityHandler = nil
             return ""
         }
-        let deadline = Date().addingTimeInterval(timeoutSeconds)
-        while process.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.05)
+
+        let group = DispatchGroup()
+        group.enter()
+        DispatchQueue.global(qos: .utility).async {
+            process.waitUntilExit()
+            group.leave()
         }
-        if process.isRunning {
+        if group.wait(timeout: .now() + timeoutSeconds) == .timedOut, process.isRunning {
             process.terminate()
-            return ""
+            _ = group.wait(timeout: .now() + 2)
         }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+
+        stdout.fileHandleForReading.readabilityHandler = nil
+        let tail = stdout.fileHandleForReading.readDataToEndOfFile()
+        lock.lock()
+        buffer.append(tail)
+        let data = Data(referencing: buffer)
+        lock.unlock()
         return String(data: data, encoding: .utf8) ?? ""
     }
+}
+
+private struct DesktopInventory {
+    var root: String
+    var topLevelDirectories: [String]
+    var directoryBytes: [String: Int64]
+    var media: [DesktopMediaHit]
+}
+
+private struct DesktopMediaHit {
+    var path: String
+    var bytes: Int64
+    var video: Bool
+    var loose: Bool
+    var accessed: Date
 }

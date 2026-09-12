@@ -243,3 +243,11 @@ enum LoadState: Sendable {
     case ready(Snapshot)
     case failed(String)
 }
+
+struct DashboardFocus: Equatable, Sendable {
+    var module: HousekeepingModule = .leftovers
+    var leftoverID: String?
+    var mediaID: String?
+    var workspaceID: String?
+    var processID: Int?
+}

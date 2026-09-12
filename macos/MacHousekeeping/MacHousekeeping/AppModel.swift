@@ -4,13 +4,12 @@ import SwiftUI
 @MainActor
 final class AppModel: ObservableObject {
     @Published var loadState: LoadState = .idle
-    @Published var module: HousekeepingModule = .leftovers
-    @Published var selectedLeftoverID: String?
-    @Published var selectedMediaID: String?
-    @Published var selectedWorkspaceID: String?
-    @Published var selectedProcessID: Int?
+    @Published var focus = DashboardFocus()
     @Published var pendingConfirm: DestructiveIntent?
     @Published var banner: String?
+    @Published var isScanning = false
+
+    private var scanRunning = false
 
     var snapshot: Snapshot? {
         if case .ready(let snapshot) = loadState { return snapshot }
@@ -18,23 +17,26 @@ final class AppModel: ObservableObject {
     }
 
     func scan() {
-        loadState = .loading
+        if scanRunning { return }
+        scanRunning = true
+        isScanning = true
         banner = nil
+        if snapshot == nil {
+            loadState = .loading
+        }
         Task {
             let loaded = await Task.detached(priority: .userInitiated) {
                 SnapshotStore.load()
             }.value
             loadState = .ready(loaded)
             banner = loaded.warnings.first
+            isScanning = false
+            scanRunning = false
         }
     }
 
     func show(_ next: HousekeepingModule) {
-        module = next
-        selectedLeftoverID = nil
-        selectedMediaID = nil
-        selectedWorkspaceID = nil
-        selectedProcessID = nil
+        focus = DashboardFocus(module: next)
     }
 
     func askDeleteLeftover(_ leftover: Leftover) {

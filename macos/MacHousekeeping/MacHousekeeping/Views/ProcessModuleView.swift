@@ -8,7 +8,7 @@ struct ProcessModuleView: View {
         NavigationStack {
             list
                 .navigationTitle("Processes")
-                .navigationDestination(item: $model.selectedProcessID) { pid in
+                .navigationDestination(item: $model.focus.processID) { pid in
                     if let process = snapshot.processes.first(where: { $0.pid == pid }) {
                         detail(process)
                     }
@@ -18,31 +18,12 @@ struct ProcessModuleView: View {
 
     private var list: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: 16) {
                 Text("Xcode Simulators")
                     .font(.headline)
                     .foregroundStyle(Chrome.text)
                 ForEach(snapshot.simulators) { device in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(device.name)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Chrome.text)
-                            Text("\(device.runtime) · \(device.state.rawValue)")
-                                .font(.caption)
-                                .foregroundStyle(Chrome.muted)
-                            Text(device.note)
-                                .font(.caption2)
-                                .foregroundStyle(Chrome.faint)
-                        }
-                        Spacer()
-                        Button("Close") {}
-                            .disabled(true)
-                            .buttonStyle(QuietButtonStyle())
-                            .opacity(0.45)
-                    }
-                    .padding(12)
-                    .housekeepingCard()
+                    SimulatorRow(device: device)
                 }
 
                 Text("Processes")
@@ -50,30 +31,9 @@ struct ProcessModuleView: View {
                     .foregroundStyle(Chrome.text)
                     .padding(.top, 8)
                 ForEach(snapshot.processes) { process in
-                    Button {
-                        model.selectedProcessID = process.pid
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(process.name)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(Chrome.text)
-                                Text("PID \(process.pid) · parent \(process.parentName)")
-                                    .font(.caption)
-                                    .foregroundStyle(Chrome.muted)
-                            }
-                            Spacer()
-                            Text(String(format: "%.1f cpu", process.cpu))
-                                .font(.caption)
-                                .foregroundStyle(Chrome.faint)
-                            UsageBadge(usage: process.usage)
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(Chrome.faint)
-                        }
-                        .padding(12)
-                        .housekeepingCard()
+                    ProcessRow(process: process) {
+                        model.focus.processID = process.pid
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(22)
@@ -83,7 +43,7 @@ struct ProcessModuleView: View {
     private func detail(_ process: MappedProcess) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Button("← Back") { model.selectedProcessID = nil }
+                Button("← Back") { model.focus.processID = nil }
                     .buttonStyle(QuietButtonStyle())
                 Text(process.name)
                     .font(.title3.weight(.semibold))
@@ -138,5 +98,66 @@ struct ProcessModuleView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .navigationTitle("Process")
+    }
+}
+
+struct SimulatorRow: View, Equatable {
+    var device: SimulatorDevice
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(device.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Chrome.text)
+                Text("\(device.runtime) · \(device.state.rawValue)")
+                    .font(.caption)
+                    .foregroundStyle(Chrome.muted)
+                Text(device.note)
+                    .font(.caption2)
+                    .foregroundStyle(Chrome.faint)
+            }
+            Spacer()
+            Button("Close") {}
+                .disabled(true)
+                .buttonStyle(QuietButtonStyle())
+                .opacity(0.45)
+        }
+        .padding(12)
+        .housekeepingCard()
+    }
+}
+
+struct ProcessRow: View, Equatable {
+    var process: MappedProcess
+    var action: () -> Void
+
+    static func == (lhs: ProcessRow, rhs: ProcessRow) -> Bool {
+        lhs.process == rhs.process
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(process.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Chrome.text)
+                    Text("PID \(process.pid) · parent \(process.parentName)")
+                        .font(.caption)
+                        .foregroundStyle(Chrome.muted)
+                }
+                Spacer()
+                Text(String(format: "%.1f cpu", process.cpu))
+                    .font(.caption)
+                    .foregroundStyle(Chrome.faint)
+                UsageBadge(usage: process.usage)
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(Chrome.faint)
+            }
+            .padding(12)
+            .housekeepingCard()
+        }
+        .buttonStyle(.plain)
     }
 }
