@@ -38,3 +38,11 @@ python3 macos/MacHousekeeping/scripts/verify-inventory.py
 Force mock on a Mac with `HOUSEKEEPING_FORCE_MOCK=1`.
 
 An earlier Next.js slice remains under `src/` as domain reference. Do not ship it as the product.
+
+```bash
+nvm use 20
+pnpm install
+pnpm dev          # Next.js on port 43147
+# If tab clicks do nothing, HMR never hydrated. Use the production server:
+pnpm build && pnpm start
+```
