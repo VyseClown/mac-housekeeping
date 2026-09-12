@@ -1,6 +1,37 @@
 import Foundation
 
 enum DarwinCollector {
+    static let leftoverNameGlobs = [
+        "*investigation*", "*repro*", "*already-used*",
+        "*evidence*", "*prove*", "*artifacts*",
+        "*pr-*", "PR-*", "*recording*", "*demo-live*",
+    ]
+    static let mediaVideoLimit = 48
+    static let mediaImageLimit = 24
+
+    static func leftoverNamePattern() -> String {
+        "investigation|repro|already-used|evidence|prove|artifacts|pr-|recording|demo-live|sbs|walkthrough|overlay"
+    }
+
+    static func looksLikeLeftoverName(_ name: String) -> Bool {
+        name.range(
+            of: leftoverNamePattern(),
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
+    }
+
+    static func repoSearchRoots(home: String) -> [String] {
+        [
+            "\(home)/work",
+            "\(home)/src",
+            "\(home)/Developer",
+            "\(home)/Projects",
+            "\(home)/code",
+            "/tmp",
+            "/private/tmp",
+        ]
+    }
+
     static func isDarwin() -> Bool {
         if ProcessInfo.processInfo.environment["HOUSEKEEPING_FORCE_MOCK"] == "1" {
             return false
@@ -22,9 +53,10 @@ enum DarwinCollector {
         let hostname = run("scutil", ["--get", "ComputerName"]).trimmingCharacters(in: .whitespacesAndNewlines)
         let osVersion = run("sw_vers", ["-productVersion"]).trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let leftovers = collectLeftovers(home: home, warnings: &warnings)
-        let media = collectMedia(home: home, warnings: &warnings)
         let workspaces = collectWorkspaces(home: home, warnings: &warnings)
+        let worktreePaths = Set(workspaces.filter { $0.kind == .worktree }.map(\.path))
+        let leftovers = collectLeftovers(home: home, excluding: worktreePaths, warnings: &warnings)
+        let media = collectMedia(home: home, warnings: &warnings)
         let processes = collectProcesses(cleanupPaths: leftovers.map(\.path) + media.map(\.path), warnings: &warnings)
         let simulators = collectSimulators(warnings: &warnings)
         let keeps = Protection.keeps(home: home).map { keep in
@@ -71,33 +103,65 @@ enum DarwinCollector {
         )
     }
 
-    private static func collectLeftovers(home: String, warnings: inout [String]) -> [Leftover] {
+    private static func collectLeftovers(
+        home: String,
+        excluding worktreePaths: Set<String>,
+        warnings: inout [String]
+    ) -> [Leftover] {
+        var paths = Set<String>()
+        let desktop = "\(home)/Desktop"
+        if FileManager.default.fileExists(atPath: desktop) {
+            let children = (try? FileManager.default.contentsOfDirectory(atPath: desktop)) ?? []
+            for name in children where !name.hasPrefix(".") {
+                let path = (desktop as NSString).appendingPathComponent(name)
+                var isDir: ObjCBool = false
+                guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
+                    continue
+                }
+                paths.insert(path)
+            }
+        }
+
         let roots = [
             "\(home)/Downloads",
-            "\(home)/Desktop",
             "\(home)/Documents",
             "\(home)/Library/Developer/Xcode/DerivedData",
             "/tmp",
+            "/private/tmp",
         ].filter { FileManager.default.fileExists(atPath: $0) }
 
-        let names = [
-            "*investigation*", "*repro-har*", "*repro-screen*", "*already-used*",
-        ]
-        var args = roots + ["-maxdepth", "4", "("]
-        for (index, name) in names.enumerated() {
-            if index > 0 { args.append("-o") }
-            args.append(contentsOf: ["-iname", name])
+        if !roots.isEmpty {
+            var args = roots + ["-maxdepth", "3", "("]
+            for (index, name) in leftoverNameGlobs.enumerated() {
+                if index > 0 { args.append("-o") }
+                args.append(contentsOf: ["-iname", name])
+            }
+            args.append(")")
+            for path in run("find", args).split(separator: "\n").map(String.init) {
+                guard !path.isEmpty else { continue }
+                var isDir: ObjCBool = false
+                guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
+                    continue
+                }
+                paths.insert(path)
+            }
         }
-        args.append(")")
-        let found = run("find", args)
-            .split(separator: "\n")
-            .map { String($0) }
-            .filter { !$0.isEmpty && !Protection.blocks($0) && !isMediaPath($0) }
+
+        let resolvedWorktrees = Set(worktreePaths.flatMap { [$0, ($0 as NSString).resolvingSymlinksInPath] })
+        let found = paths
+            .filter { path in
+                !Protection.blocks(path)
+                    && !isMediaPath(path)
+                    && !resolvedWorktrees.contains(path)
+                    && !resolvedWorktrees.contains((path as NSString).resolvingSymlinksInPath)
+            }
+            .sorted()
 
         if found.isEmpty {
-            warnings.append("No investigation leftover folders matched on this Mac.")
+            warnings.append("No leftover folders matched on this Mac.")
         }
 
+        let desktopSizes = folderSizes(desktop)
         return found.map { path in
             let handles = handlesFor(path)
             let access = lastAccess(path)
@@ -106,19 +170,21 @@ enum DarwinCollector {
                 lastAccessAt: access,
                 protectedPath: false
             )
+            let bytes = desktopSizes[path] ?? desktopSizes[(path as NSString).resolvingSymlinksInPath] ?? pathBytes(path)
             return Leftover(
                 id: slug(path),
                 path: path,
                 kind: .investigation,
-                bytes: pathBytes(path),
+                bytes: bytes,
                 lastAccessAt: access,
                 lastAccessSource: "stat",
                 openHandles: handles,
                 usage: usage.0,
                 usageReason: usage.1,
-                note: "Investigation leftover. Eligible only after usage validates idle."
+                note: "Leftover folder. Eligible only after usage validates idle."
             )
         }
+        .sorted { $0.bytes > $1.bytes }
     }
 
     private static func collectMedia(home: String, warnings: inout [String]) -> [MediaEvidence] {
@@ -128,27 +194,59 @@ enum DarwinCollector {
             return []
         }
 
-        let args = [
-            desktop, "-maxdepth", "5", "-type", "f", "(",
+        let mediaPredicate = [
+            "(",
             "-iname", "*.png", "-o", "-iname", "*.jpg", "-o", "-iname", "*.jpeg",
             "-o", "-iname", "*.heic", "-o", "-iname", "*.webp",
             "-o", "-iname", "*.mov", "-o", "-iname", "*.mp4", "-o", "-iname", "*.m4v",
             ")",
         ]
-        let found = run("find", args)
-            .split(separator: "\n")
-            .map { String($0) }
-            .filter { path in
-                !path.isEmpty
-                    && !Protection.blocks(path)
-                    && looksLikeEvidence(path)
+        let loose = run("find", [desktop, "-maxdepth", "1", "-type", "f"] + mediaPredicate)
+            .split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+        let videos = run("find", [desktop, "-maxdepth", "5", "-type", "f"] + [
+            "(", "-iname", "*.mov", "-o", "-iname", "*.mp4", "-o", "-iname", "*.m4v", ")",
+        ])
+            .split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+        let largeImages = run("find", [desktop, "-maxdepth", "5", "-type", "f", "-size", "+400k"] + [
+            "(", "-iname", "*.png", "-o", "-iname", "*.jpg", "-o", "-iname", "*.jpeg",
+            "-o", "-iname", "*.heic", "-o", "-iname", "*.webp", ")",
+        ])
+            .split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+
+        let candidates = Array(Set(loose + videos + largeImages))
+            .filter { !Protection.blocks($0) }
+            .map { path -> (String, Int64, Bool) in
+                (path, fileBytes(path), isVideo(path))
             }
 
-        if found.isEmpty {
+        let looseSet = Set(loose)
+        let rankedVideos = candidates
+            .filter(\.2)
+            .sorted { lhs, rhs in
+                let leftLoose = looseSet.contains(lhs.0)
+                let rightLoose = looseSet.contains(rhs.0)
+                if leftLoose != rightLoose { return leftLoose }
+                return lhs.1 > rhs.1
+            }
+        let rankedImages = candidates
+            .filter { !$0.2 }
+            .sorted { lhs, rhs in
+                let leftLoose = looseSet.contains(lhs.0)
+                let rightLoose = looseSet.contains(rhs.0)
+                if leftLoose != rightLoose { return leftLoose }
+                return lhs.1 > rhs.1
+            }
+
+        let picked = Array(rankedVideos.prefix(mediaVideoLimit)) + Array(rankedImages.prefix(mediaImageLimit))
+        if picked.isEmpty {
             warnings.append("No Desktop prove or evidence media matched on this Mac.")
+        } else if candidates.count > picked.count {
+            warnings.append(
+                "Showing the largest \(picked.count) Desktop leftover images and videos of \(candidates.count) scanned."
+            )
         }
 
-        return found.map { path in
+        return picked.map { path, bytes, video in
             let handles = handlesFor(path)
             let access = lastAccess(path)
             let usage = UsageEvaluator.pathUsage(
@@ -164,8 +262,8 @@ enum DarwinCollector {
                 id: slug(path),
                 path: path,
                 filename: filename,
-                kind: isVideo(path) ? .video : .image,
-                bytes: pathBytes(path),
+                kind: video ? .video : .image,
+                bytes: bytes,
                 lastAccessAt: access,
                 lastAccessSource: "stat",
                 usage: usage.0,
@@ -189,14 +287,21 @@ enum DarwinCollector {
 
         for repo in repoRoots {
             if Protection.blocks(repo) { continue }
+            let gitEntry = (repo as NSString).appendingPathComponent(".git")
+            var gitIsDir: ObjCBool = false
+            let gitIsDirectory = FileManager.default.fileExists(atPath: gitEntry, isDirectory: &gitIsDir) && gitIsDir.boolValue
+            guard gitIsDirectory else { continue }
+
             let porcelain = run("git", ["-C", repo, "worktree", "list", "--porcelain"])
             let blocks = porcelain.components(separatedBy: "\n\n")
             for block in blocks {
                 let lines = block.split(separator: "\n").map(String.init)
                 guard let worktreeLine = lines.first(where: { $0.hasPrefix("worktree ") }) else { continue }
                 let path = String(worktreeLine.dropFirst("worktree ".count))
-                if seenPaths.contains(path) || Protection.blocks(path) { continue }
+                let resolved = (path as NSString).resolvingSymlinksInPath
+                if seenPaths.contains(path) || seenPaths.contains(resolved) || Protection.blocks(path) { continue }
                 seenPaths.insert(path)
+                seenPaths.insert(resolved)
                 let branch = lines.first(where: { $0.hasPrefix("branch ") })
                     .map { String($0.dropFirst("branch ".count)).replacingOccurrences(of: "refs/heads/", with: "") }
                     ?? (lines.contains(where: { $0 == "bare" }) ? "(bare)" : "detached")
@@ -209,6 +314,7 @@ enum DarwinCollector {
                     lastAccessAt: lastAccess(path),
                     protectedPath: false
                 )
+                let leftoverTree = path.contains("/tmp/") || path.contains("/private/tmp/")
                 workspaces.append(
                     GitWorkspace(
                         id: slug(path),
@@ -217,11 +323,15 @@ enum DarwinCollector {
                         path: path,
                         repoName: (repo as NSString).lastPathComponent,
                         repoRoot: repo,
-                        bytes: pathBytes(path),
+                        bytes: leftoverTree ? pathBytes(path) : 0,
                         usage: usage.0,
-                        usageReason: usage.1,
+                        usageReason: leftoverTree
+                            ? usage.1
+                            : "Active checkout. Listed for review; size is left on the leftover /tmp slice.",
                         holdingProcess: holder,
-                        suggestedAction: .removeWorktreeLater(command: "git worktree remove \(path)")
+                        suggestedAction: leftoverTree
+                            ? .removeWorktreeLater(command: "git worktree remove \(path)")
+                            : .none
                     )
                 )
             }
@@ -263,7 +373,7 @@ enum DarwinCollector {
         }
 
         let filter = try? NSRegularExpression(
-            pattern: "Simulator|launchd_sim|qemu-system|CoreSimulator|Xcode|SourceKit|node|Cursor|ffmpeg|tcpdump|Preview|nightshift|ai-memory|ai_memory"
+            pattern: "Simulator|launchd_sim|qemu-system|CoreSimulator|Xcode|SourceKit|node|Cursor|ffmpeg|tcpdump|Preview|QuickTime|QTKit|VLC|nightshift|night-shift|ai-memory|ai_memory"
         )
         var rows: [(pid: Int, ppid: Int, user: String, cpu: Double, memMb: Int, elapsed: String, state: String, command: String)] = []
         for line in output.split(separator: "\n") {
@@ -384,9 +494,10 @@ enum DarwinCollector {
     }
 
     private static func discoverRepos(home: String) -> [String] {
-        let roots = ["\(home)/src", "\(home)/Developer", "\(home)/Projects", "\(home)/code", home, "/tmp"]
+        let roots = repoSearchRoots(home: home)
             .filter { FileManager.default.fileExists(atPath: $0) }
-        let output = run("find", roots + ["-maxdepth", "4", "-name", ".git"])
+        guard !roots.isEmpty else { return [] }
+        let output = run("find", roots + ["-maxdepth", "5", "-name", ".git"])
         var repos: [String] = []
         for line in output.split(separator: "\n") {
             let gitPath = String(line)
@@ -447,7 +558,7 @@ enum DarwinCollector {
 
     private static func looksLikeEvidence(_ path: String) -> Bool {
         path.range(
-            of: "investigation|repro-har|repro-screen|used-capture|used-export|used-review|already-used|pr-evidence|prove-|evidence-",
+            of: leftoverNamePattern() + "|used-capture|used-export|used-review|pr-evidence|prove-|evidence-",
             options: [.regularExpression, .caseInsensitive]
         ) != nil
     }
@@ -465,6 +576,9 @@ enum DarwinCollector {
             let digits = path[match].split(separator: "-").last.map(String.init) ?? ""
             return digits.isEmpty ? nil : "PR #\(digits)"
         }
+        if let match = path.range(of: "\\d{3,5}", options: .regularExpression) {
+            return "Ticket \(path[match])"
+        }
         return nil
     }
 
@@ -477,6 +591,28 @@ enum DarwinCollector {
             handles.append(OpenHandle(pid: pid, process: parts[0], fd: parts[3], mode: parts.count > 4 ? parts[4] : nil))
         }
         return handles
+    }
+
+    private static func folderSizes(_ root: String) -> [String: Int64] {
+        guard FileManager.default.fileExists(atPath: root) else { return [:] }
+        var sizes: [String: Int64] = [:]
+        let output = run("du", ["-d", "1", "-sk", root])
+        for line in output.split(separator: "\n") {
+            let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)
+            let fallback = line.split(separator: " ", maxSplits: 1).map(String.init)
+            let cols = parts.count == 2 ? parts : fallback
+            guard cols.count == 2, let kb = Int64(cols[0]) else { continue }
+            sizes[cols[1]] = kb * 1024
+        }
+        return sizes
+    }
+
+    private static func fileBytes(_ path: String) -> Int64 {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: path)
+        if let size = attrs?[.size] as? NSNumber {
+            return size.int64Value
+        }
+        return pathBytes(path)
     }
 
     private static func pathBytes(_ path: String) -> Int64 {

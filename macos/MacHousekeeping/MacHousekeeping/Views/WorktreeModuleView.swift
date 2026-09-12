@@ -121,6 +121,8 @@ struct WorktreeModuleView: View {
     private func detail(_ item: GitWorkspace) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                Button("← Back") { model.selectedWorkspaceID = nil }
+                    .buttonStyle(QuietButtonStyle())
                 Text(item.name)
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Chrome.text)

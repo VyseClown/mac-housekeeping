@@ -53,4 +53,22 @@ final class InventoryInvariantTests: XCTestCase {
         XCTAssertTrue(snapshot.media.allSatisfy(\.alreadyUsedOnPR))
         XCTAssertTrue(snapshot.media.allSatisfy { $0.path.contains("/Desktop/") })
     }
+
+    func testDarwinMatchersCoverDesktopLeftovers() {
+        XCTAssertTrue(DarwinCollector.looksLikeLeftoverName("pr-evidence-pack"))
+        XCTAssertTrue(DarwinCollector.looksLikeLeftoverName("sep3-demo-live-prove"))
+        XCTAssertTrue(DarwinCollector.looksLikeLeftoverName("ticket-1082-artifacts"))
+        XCTAssertTrue(DarwinCollector.leftoverNameGlobs.contains("*evidence*"))
+        XCTAssertTrue(DarwinCollector.leftoverNameGlobs.contains("*prove*"))
+        XCTAssertGreaterThan(DarwinCollector.mediaVideoLimit, 0)
+        let roots = DarwinCollector.repoSearchRoots(home: "/Users/alessandro")
+        XCTAssertTrue(roots.contains("/tmp"))
+        XCTAssertTrue(roots.contains("/Users/alessandro/work"))
+    }
+
+    func testHyphenatedNightShiftStaysProtected() {
+        XCTAssertTrue(Protection.blocks("/Users/alessandro/work/personal/night-shift-engine"))
+        XCTAssertTrue(Protection.blocksProcess(name: "bash", command: "bash scripts/night-shift.sh --dry-run"))
+        XCTAssertTrue(Protection.blocks("/Users/alessandro/Library/Application Support/ai-memory"))
+    }
 }

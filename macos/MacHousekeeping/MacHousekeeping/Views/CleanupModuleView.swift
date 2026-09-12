@@ -96,6 +96,8 @@ struct CleanupModuleView: View {
     private func leftoverDetail(_ leftover: Leftover) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                Button("← Back") { model.selectedLeftoverID = nil }
+                    .buttonStyle(QuietButtonStyle())
                 Text((leftover.path as NSString).lastPathComponent)
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(Chrome.text)

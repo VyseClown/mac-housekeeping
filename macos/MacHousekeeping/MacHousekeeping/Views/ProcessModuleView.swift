@@ -83,6 +83,8 @@ struct ProcessModuleView: View {
     private func detail(_ process: MappedProcess) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                Button("← Back") { model.selectedProcessID = nil }
+                    .buttonStyle(QuietButtonStyle())
                 Text(process.name)
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Chrome.text)

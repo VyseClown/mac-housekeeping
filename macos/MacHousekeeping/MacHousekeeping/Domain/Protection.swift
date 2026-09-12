@@ -1,7 +1,10 @@
 import Foundation
 
 enum Protection {
-    static let blockedNames = ["nightshift", "ai-memory", "ai_memory"]
+    static let blockedNames = [
+        "nightshift", "night-shift", "night_shift",
+        "ai-memory", "ai_memory",
+    ]
 
     static func blocks(_ path: String) -> Bool {
         let lowered = path.lowercased()

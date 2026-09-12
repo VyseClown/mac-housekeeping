@@ -1,5 +1,6 @@
 import SwiftUI
 #if os(macOS)
+import AppKit
 import AVKit
 #endif
 
@@ -60,6 +61,8 @@ struct MediaModuleView: View {
     private func inspector(_ item: MediaEvidence) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                Button("← Back") { model.selectedMediaID = nil }
+                    .buttonStyle(QuietButtonStyle())
                 MediaPreviewStage(item: item)
                     .frame(height: 320)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -101,7 +104,21 @@ struct MediaThumb: View {
 
     var body: some View {
         ZStack {
-            MediaPreviewStage(item: item)
+            if item.kind == .image,
+               FileManager.default.fileExists(atPath: item.path),
+               let nsImage = NSImage(contentsOfFile: item.path) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                LinearGradient(
+                    colors: item.kind == .video
+                        ? [Color(red: 0.22, green: 0.10, blue: 0.36), Color(red: 0.08, green: 0.12, blue: 0.28)]
+                        : [Color(red: 0.16, green: 0.18, blue: 0.32), Color(red: 0.08, green: 0.22, blue: 0.24)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
             if item.kind == .video {
                 Image(systemName: "play.circle.fill")
                     .font(.title)

@@ -20,10 +20,12 @@ final class AppModel: ObservableObject {
     func scan() {
         loadState = .loading
         banner = nil
-        let loaded = SnapshotStore.load()
-        loadState = .ready(loaded)
-        if let warning = loaded.warnings.first {
-            banner = warning
+        Task {
+            let loaded = await Task.detached(priority: .userInitiated) {
+                SnapshotStore.load()
+            }.value
+            loadState = .ready(loaded)
+            banner = loaded.warnings.first
         }
     }
 
