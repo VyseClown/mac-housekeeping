@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draw Linux stand-in frames of the SwiftUI chrome for store media."""
+"""Draw Linux stand-in frames of the Pulse-tab SwiftUI chrome."""
 
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 OUT = Path("/cursor/stores/bc-c1bcf9bb-f833-47e4-a05c-0f3f4614856b/media")
 W, H = 1280, 800
 BG = (14, 16, 19)
-SIDE = (9, 10, 12)
+BAR = (9, 10, 12)
 CARD = (22, 24, 28)
 TEXT = (235, 235, 238)
 MUTED = (140, 144, 152)
@@ -15,6 +15,7 @@ GREEN = (59, 214, 133)
 PURPLE = (158, 122, 250)
 BLUE = (79, 176, 245)
 AMBER = (245, 179, 61)
+TABS = ("Cleanup", "Media", "Branches", "Processes")
 
 
 def font(size, bold=False):
@@ -32,31 +33,21 @@ def rounded(draw, box, radius, fill, outline=None):
     draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline)
 
 
-def sidebar(draw, active):
-    draw.rectangle([0, 0, 232, H], fill=SIDE)
-    draw.text((24, 28), "Housekeeping", font=font(18, True), fill=TEXT)
-    draw.text((24, 52), "Alessandro Gentil", font=font(12), fill=MUTED)
-    items = [
-        ("Overview", 90),
-        ("Cleanup leftovers", 130),
-        ("Media", 170),
-        ("Branches and worktrees", 210),
-        ("Processes", 250),
-    ]
-    for title, y in items:
+def chrome(draw, active):
+    draw.rectangle([0, 0, W, 64], fill=BAR)
+    draw.text((22, 22), "Housekeeping", font=font(16, True), fill=TEXT)
+    x = 180
+    for title in TABS:
+        width = 92 if title != "Processes" else 100
         if title == active:
-            rounded(draw, (12, y - 8, 220, y + 24), 8, (28, 30, 36))
-        color = TEXT if title == active else MUTED
-        draw.text((28, y), title, font=font(13, title == active), fill=color)
-    draw.text((24, 740), "Mock Mac data", font=font(11, True), fill=AMBER)
-    draw.text((24, 758), "macOS 15.6.1 (mock)", font=font(10), fill=MUTED)
-
-
-def topbar(draw, title):
-    draw.text((256, 22), title, font=font(22, True), fill=TEXT)
-    draw.text((256, 52), "alessandro · Alessandros-MacBook-Pro.local", font=font(11), fill=MUTED)
-    rounded(draw, (1080, 24, 1248, 58), 16, GREEN)
-    draw.text((1102, 32), "Scan leftovers", font=font(12, True), fill=(10, 20, 14))
+            rounded(draw, (x, 16, x + width, 48), 14, (28, 30, 36))
+        draw.text((x + 12, 24), title, font=font(12, title == active), fill=TEXT if title == active else MUTED)
+        x += width + 6
+    rounded(draw, (980, 18, 1118, 46), 14, (28, 30, 36))
+    draw.ellipse([992, 28, 1002, 38], fill=AMBER)
+    draw.text((1008, 24), "Mock · companion", font=font(10, True), fill=TEXT)
+    rounded(draw, (1132, 16, 1258, 48), 16, GREEN)
+    draw.text((1146, 24), "Scan leftovers", font=font(11, True), fill=(10, 20, 14))
 
 
 def badge(draw, x, y, label, color):
@@ -71,44 +62,18 @@ def save(image, name):
     return path
 
 
-def overview():
-    img = Image.new("RGB", (W, H), BG)
-    d = ImageDraw.Draw(img)
-    sidebar(d, "Overview")
-    topbar(d, "Overview")
-    d.ellipse([300, 140, 560, 400], outline=(30, 32, 38), width=22)
-    d.arc([300, 140, 560, 400], start=-90, end=-70, fill=GREEN, width=22)
-    d.arc([300, 140, 560, 400], start=-70, end=80, fill=PURPLE, width=22)
-    d.arc([300, 140, 560, 400], start=80, end=270, fill=BLUE, width=22)
-    d.text((368, 240), "Mapped", font=font(12), fill=MUTED)
-    d.text((348, 258), "53.7 GB", font=font(28, True), fill=TEXT)
-    d.text((352, 296), "on Alessandro's Mac", font=font(11), fill=MUTED)
-    d.text((600, 160), "Space map", font=font(26, True), fill=TEXT)
-    d.text((600, 200), "Investigation leftovers, already-used Desktop", font=font(13), fill=MUTED)
-    d.text((600, 220), "evidence, and /tmp git worktrees.", font=font(13), fill=MUTED)
-    d.text((600, 260), "Leftovers   2.54 GB", font=font(13), fill=GREEN)
-    d.text((600, 282), "Media       28 GB", font=font(13), fill=PURPLE)
-    d.text((600, 304), "Worktrees   23 GB", font=font(13), fill=BLUE)
-    rounded(d, (600, 340, 760, 376), 16, GREEN)
-    d.text((618, 350), "Review leftovers", font=font(12, True), fill=(10, 20, 14))
-    cards = [
-        (256, 460, "Cleanup leftovers", "2.54 GB", GREEN),
-        (560, 460, "Desktop media", "28 GB", PURPLE),
-        (864, 460, "Branches and worktrees", "23 GB", BLUE),
-    ]
-    for x, y, title, size, hue in cards:
-        rounded(d, (x, y, x + 284, y + 140), 16, CARD)
-        d.text((x + 18, y + 18), title, font=font(13), fill=MUTED)
-        d.text((x + 18, y + 50), size, font=font(26, True), fill=TEXT)
-        d.ellipse([x + 18, y + 104, x + 30, y + 116], fill=hue)
-    return save(img, "native-overview.png")
-
-
 def leftovers():
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
-    sidebar(d, "Cleanup leftovers")
-    topbar(d, "Cleanup leftovers")
+    chrome(d, "Cleanup")
+    d.ellipse([40, 110, 260, 330], outline=(30, 32, 38), width=18)
+    d.arc([40, 110, 260, 330], start=-90, end=200, fill=GREEN, width=18)
+    d.arc([40, 110, 260, 330], start=200, end=270, fill=AMBER, width=18)
+    d.text((92, 190), "2.54 GB", font=font(20, True), fill=TEXT)
+    d.text((88, 220), "leftovers only", font=font(11), fill=MUTED)
+    d.text((290, 140), "Idle 2.47 GB", font=font(14, True), fill=GREEN)
+    d.text((290, 166), "In use 72.8 MB", font=font(14, True), fill=AMBER)
+    d.text((290, 198), "Media and worktrees stay on their own tabs.", font=font(12), fill=MUTED)
     rows = [
         ("investigation-2026-03-trace", "1.52 GB", "Idle", GREEN),
         ("repro-har-dumps", "195 MB", "Idle", GREEN),
@@ -116,29 +81,37 @@ def leftovers():
         ("investigation-packet-captures", "72.8 MB", "In use", AMBER),
     ]
     for i, (name, size, usage, color) in enumerate(rows):
-        y = 100 + i * 78
-        fill = (28, 30, 36) if i == 0 else CARD
-        rounded(d, (256, y, 760, y + 70), 12, fill)
-        d.text((272, y + 12), name, font=font(14, True), fill=TEXT)
-        d.text((272, y + 36), size, font=font(12), fill=MUTED)
-        badge(d, 680, y + 24, usage, color)
-    rounded(d, (780, 100, 1256, 620), 16, CARD)
-    d.text((800, 120), "investigation-2026-03-trace", font=font(16, True), fill=TEXT)
-    d.text((800, 150), "Usage validation", font=font(13, True), fill=TEXT)
-    d.text((800, 180), "Open handles   None", font=font(12), fill=MUTED)
-    d.text((800, 204), "Last access    12d ago · mock", font=font(12), fill=MUTED)
-    d.text((800, 228), "Parent         No holder", font=font(12), fill=MUTED)
-    d.text((800, 252), "Idle vs in use Looks unused.", font=font(12), fill=MUTED)
-    rounded(d, (800, 300, 950, 334), 16, GREEN)
-    d.text((818, 310), "Review delete", font=font(12, True), fill=(10, 20, 14))
+        y = 360 + i * 72
+        rounded(d, (40, y, 1240, y + 64), 12, CARD)
+        d.text((56, y + 12), name, font=font(14, True), fill=TEXT)
+        d.text((56, y + 36), size, font=font(12), fill=MUTED)
+        badge(d, 1120, y + 22, usage, color)
+        d.text((1210, y + 22), ">", font=font(16), fill=MUTED)
     return save(img, "native-cleanup.png")
+
+
+def leftover_detail():
+    img = Image.new("RGB", (W, H), BG)
+    d = ImageDraw.Draw(img)
+    chrome(d, "Cleanup")
+    d.text((40, 88), "<  Back", font=font(13), fill=BLUE)
+    d.text((40, 120), "investigation-2026-03-trace", font=font(22, True), fill=TEXT)
+    d.text((40, 156), "/Users/alessandro/Downloads/investigation-2026-03-trace", font=font(12), fill=MUTED)
+    rounded(d, (40, 200, 760, 420), 16, CARD)
+    d.text((56, 216), "Usage validation", font=font(14, True), fill=TEXT)
+    d.text((56, 250), "Open handles   None", font=font(13), fill=MUTED)
+    d.text((56, 276), "Last access    12d ago · mock", font=font(13), fill=MUTED)
+    d.text((56, 302), "Parent         No holder", font=font(13), fill=MUTED)
+    d.text((56, 328), "Idle vs in use Looks unused.", font=font(13), fill=MUTED)
+    rounded(d, (56, 368, 200, 400), 16, GREEN)
+    d.text((72, 376), "Review delete", font=font(12, True), fill=(10, 20, 14))
+    return save(img, "native-cleanup-detail.png")
 
 
 def media():
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
-    sidebar(d, "Media")
-    topbar(d, "Media")
+    chrome(d, "Media")
     tiles = [
         ("prove-login-flow.mov", "8.3 GB", True),
         ("evidence-repro-loop.mp4", "6.0 GB", True),
@@ -149,35 +122,27 @@ def media():
     ]
     for i, (name, size, video) in enumerate(tiles):
         col, row = i % 3, i // 3
-        x, y = 256 + col * 220, 100 + row * 180
+        x, y = 40 + col * 400, 100 + row * 220
         hue = (55, 28, 90) if video else (22, 48, 52)
-        rounded(d, (x, y, x + 200, y + 110), 12, hue)
+        rounded(d, (x, y, x + 372, y + 150), 12, hue)
         if video:
-            d.ellipse([x + 78, y + 36, x + 118, y + 76], outline=TEXT, width=2)
-        d.text((x, y + 118), name, font=font(11, True), fill=TEXT)
-        d.text((x, y + 136), size, font=font(10), fill=MUTED)
-    rounded(d, (940, 100, 1256, 620), 16, CARD)
-    d.text((956, 118), "prove-login-flow.mov", font=font(15, True), fill=TEXT)
-    d.text((956, 146), "Already used on PR #1842", font=font(12, True), fill=PURPLE)
-    rounded(d, (956, 176, 1236, 330), 12, (55, 28, 90))
-    d.text((1040, 240), "VIDEO PREVIEW", font=font(12, True), fill=TEXT)
-    d.text((956, 350), "/Users/alessandro/Desktop/pr-evidence/", font=font(10), fill=MUTED)
-    d.text((956, 380), "Usage validation  Idle", font=font(12), fill=GREEN)
+            d.ellipse([x + 166, y + 55, x + 206, y + 95], outline=TEXT, width=2)
+        d.text((x, y + 162), name, font=font(13, True), fill=TEXT)
+        d.text((x, y + 184), size + "  ·  already used on a PR", font=font(11), fill=MUTED)
     return save(img, "native-media.png")
 
 
 def worktrees():
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
-    sidebar(d, "Branches and worktrees")
-    topbar(d, "Branches and worktrees")
-    d.text((256, 96), "Worktree space", font=font(18, True), fill=TEXT)
-    d.text((256, 124), "23 GB across 4 worktrees. Separate from leftover cards.", font=font(12), fill=MUTED)
-    rounded(d, (256, 156, 1256, 190), 8, CARD)
-    d.rectangle([260, 162, 620, 184], fill=BLUE)
-    d.rectangle([622, 162, 920, 184], fill=AMBER)
-    d.rectangle([922, 162, 1120, 184], fill=BLUE)
-    d.rectangle([1122, 162, 1250, 184], fill=(50, 110, 160))
+    chrome(d, "Branches")
+    d.text((40, 96), "Worktree space", font=font(18, True), fill=TEXT)
+    d.text((40, 124), "23 GB across 4 worktrees. Leftovers and media stay on their tabs.", font=font(12), fill=MUTED)
+    rounded(d, (40, 156, 1240, 190), 8, CARD)
+    d.rectangle([44, 162, 500, 184], fill=BLUE)
+    d.rectangle([502, 162, 820, 184], fill=AMBER)
+    d.rectangle([822, 162, 1080, 184], fill=BLUE)
+    d.rectangle([1082, 162, 1236, 184], fill=(50, 110, 160))
     rows = [
         ("/tmp/cursor-worktree-housekeeping-a1", "8.19 GB", "Idle", GREEN),
         ("/tmp/cursor-worktree-agent-b2", "7.10 GB", "In use", AMBER),
@@ -185,49 +150,40 @@ def worktrees():
         ("/tmp/cursor-worktree-old-d4", "2.31 GB", "Idle", GREEN),
     ]
     for i, (path, size, usage, color) in enumerate(rows):
-        y = 220 + i * 70
-        rounded(d, (256, y, 860, y + 60), 12, CARD)
-        d.text((272, y + 10), path, font=font(13, True), fill=TEXT)
-        d.text((272, y + 32), "mac-housekeeping · " + size, font=font(11), fill=MUTED)
-        badge(d, 780, y + 20, usage, color)
-    rounded(d, (880, 220, 1256, 520), 16, CARD)
-    d.text((896, 240), "Later suggestion", font=font(13, True), fill=TEXT)
-    d.text((896, 270), "git worktree remove", font=font(12), fill=BLUE)
-    d.text((896, 290), "/tmp/cursor-worktree-housekeeping-a1", font=font(11), fill=MUTED)
-    d.text((896, 330), "This app does not run the command.", font=font(12), fill=AMBER)
+        y = 220 + i * 80
+        rounded(d, (40, y, 1240, y + 70), 12, CARD)
+        d.text((56, y + 12), path, font=font(14, True), fill=TEXT)
+        d.text((56, y + 38), "mac-housekeeping · " + size, font=font(12), fill=MUTED)
+        badge(d, 1120, y + 24, usage, color)
     return save(img, "native-worktrees.png")
 
 
 def processes():
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
-    sidebar(d, "Processes")
-    topbar(d, "Processes")
-    d.text((256, 100), "Xcode Simulators", font=font(16, True), fill=TEXT)
-    rounded(d, (256, 132, 760, 200), 12, CARD)
-    d.text((272, 146), "iPhone 16 Pro  ·  iOS 18.5  ·  Booted", font=font(13, True), fill=TEXT)
-    d.text((272, 170), "Models are using this device. Close stays off.", font=font(11), fill=MUTED)
-    rounded(d, (640, 154, 740, 182), 10, (40, 40, 44))
-    d.text((660, 160), "Close", font=font(11), fill=MUTED)
+    chrome(d, "Processes")
+    d.text((40, 96), "Xcode Simulators", font=font(16, True), fill=TEXT)
+    rounded(d, (40, 128, 1240, 196), 12, CARD)
+    d.text((56, 142), "iPhone 16 Pro  ·  iOS 18.5  ·  Booted", font=font(13, True), fill=TEXT)
+    d.text((56, 166), "Models are using this device. Close stays off.", font=font(12), fill=MUTED)
+    rounded(d, (1120, 148, 1218, 176), 10, (40, 40, 44))
+    d.text((1140, 154), "Close", font=font(11), fill=MUTED)
+    d.text((40, 226), "Processes", font=font(16, True), fill=TEXT)
     rows = [("ffmpeg", "55210", "Idle", GREEN), ("tcpdump", "33901", "Idle", GREEN), ("Preview", "77812", "In use", AMBER)]
-    d.text((256, 230), "Processes", font=font(16, True), fill=TEXT)
     for i, (name, pid, usage, color) in enumerate(rows):
-        y = 262 + i * 64
-        rounded(d, (256, y, 760, y + 56), 12, CARD)
-        d.text((272, y + 10), name, font=font(14, True), fill=TEXT)
-        d.text((272, y + 32), f"PID {pid} · parent launchd", font=font(11), fill=MUTED)
-        badge(d, 680, y + 18, usage, color)
-    rounded(d, (780, 132, 1256, 560), 16, CARD)
-    d.text((796, 150), "ffmpeg", font=font(18, True), fill=TEXT)
-    d.text((796, 184), "Localize", font=font(13, True), fill=TEXT)
-    d.text((796, 210), "Activity Monitor → search ffmpeg", font=font(12), fill=MUTED)
-    d.text((796, 232), "lsof -nP -p 55210", font=font(12), fill=MUTED)
-    d.text((796, 270), "No signal is sent from this app.", font=font(12), fill=AMBER)
+        y = 260 + i * 80
+        rounded(d, (40, y, 1240, y + 70), 12, CARD)
+        d.text((56, y + 14), name, font=font(16, True), fill=TEXT)
+        d.text((56, y + 40), f"PID {pid} · parent launchd", font=font(12), fill=MUTED)
+        badge(d, 1120, y + 24, usage, color)
     return save(img, "native-processes.png")
 
 
 def main():
-    paths = [overview(), leftovers(), media(), worktrees(), processes()]
+    old = OUT / "native-overview.png"
+    if old.exists():
+        old.unlink()
+    paths = [leftovers(), leftover_detail(), media(), worktrees(), processes()]
     for path in paths:
         size = path.stat().st_size
         if size < 10_000:

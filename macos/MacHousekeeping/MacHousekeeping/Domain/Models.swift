@@ -13,7 +13,6 @@ enum UsageState: String, Sendable {
 }
 
 enum HousekeepingModule: String, CaseIterable, Identifiable, Sendable {
-    case overview
     case leftovers
     case media
     case worktrees
@@ -23,17 +22,15 @@ enum HousekeepingModule: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .overview: return "Overview"
-        case .leftovers: return "Cleanup leftovers"
+        case .leftovers: return "Cleanup"
         case .media: return "Media"
-        case .worktrees: return "Branches and worktrees"
+        case .worktrees: return "Branches"
         case .processes: return "Processes"
         }
     }
 
     var symbol: String {
         switch self {
-        case .overview: return "circle.hexagongrid.fill"
         case .leftovers: return "internaldrive"
         case .media: return "photo.on.rectangle.angled"
         case .worktrees: return "arrow.triangle.branch"

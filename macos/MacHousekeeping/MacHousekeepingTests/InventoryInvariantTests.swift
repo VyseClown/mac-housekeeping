@@ -42,6 +42,12 @@ final class InventoryInvariantTests: XCTestCase {
         )
     }
 
+    func testFourPeerTabsOnly() {
+        XCTAssertEqual(HousekeepingModule.allCases.map(\.rawValue), [
+            "leftovers", "media", "worktrees", "processes",
+        ])
+    }
+
     func testDesktopEvidenceIsCleanupCandidate() {
         let snapshot = MockInventory.snapshot()
         XCTAssertTrue(snapshot.media.allSatisfy(\.alreadyUsedOnPR))

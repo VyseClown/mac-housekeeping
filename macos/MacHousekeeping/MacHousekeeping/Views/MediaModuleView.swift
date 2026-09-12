@@ -7,27 +7,22 @@ struct MediaModuleView: View {
     @ObservedObject var model: AppModel
     var snapshot: Snapshot
 
-    private var selected: MediaEvidence? {
-        snapshot.media.first(where: { $0.id == model.selectedMediaID }) ?? snapshot.media.first
-    }
-
     var body: some View {
-        if snapshot.media.isEmpty {
-            EmptyStateView(
-                title: "No Desktop evidence",
-                detail: "Prove and evidence images and videos on the Desktop show up here after a scan."
-            )
-        } else {
-            HStack(spacing: 0) {
-                gallery
-                Divider().background(Color.white.opacity(0.06))
-                if let media = selected {
-                    inspector(media)
+        NavigationStack {
+            Group {
+                if snapshot.media.isEmpty {
+                    EmptyStateView(
+                        title: "No Desktop evidence",
+                        detail: "Prove and evidence images and videos on the Desktop show up here after a scan."
+                    )
+                } else {
+                    gallery
                 }
             }
-            .onAppear {
-                if model.selectedMediaID == nil {
-                    model.selectedMediaID = snapshot.media.first?.id
+            .navigationTitle("Media")
+            .navigationDestination(item: $model.selectedMediaID) { id in
+                if let item = snapshot.media.first(where: { $0.id == id }) {
+                    inspector(item)
                 }
             }
         }
@@ -35,13 +30,13 @@ struct MediaModuleView: View {
 
     private var gallery: some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 168), spacing: 12)], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 14)], spacing: 14) {
                 ForEach(snapshot.media) { item in
                     Button {
                         model.selectedMediaID = item.id
                     } label: {
                         VStack(alignment: .leading, spacing: 8) {
-                            MediaThumb(item: item, selected: model.selectedMediaID == item.id)
+                            MediaThumb(item: item, selected: false)
                             Text(item.filename)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(Chrome.text)
@@ -58,18 +53,19 @@ struct MediaModuleView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(16)
+            .padding(22)
         }
     }
 
     private func inspector(_ item: MediaEvidence) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                MediaPreviewStage(item: item)
+                    .frame(height: 320)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 Text(item.filename)
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Chrome.text)
-                MediaPreviewStage(item: item)
-                    .frame(height: 240)
                 if let pr = item.pullRequest {
                     Text("Already used on \(pr)")
                         .font(.caption.weight(.semibold))
@@ -92,9 +88,10 @@ struct MediaModuleView: View {
                     extra: "Already-used PR evidence is a cleanup candidate. This app does not delete it."
                 )
             }
-            .padding(20)
-            .frame(width: 360, alignment: .leading)
+            .padding(22)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .navigationTitle("Preview")
     }
 }
 
@@ -112,7 +109,7 @@ struct MediaThumb: View {
                     .shadow(radius: 6)
             }
         }
-        .frame(height: 110)
+        .frame(height: 120)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)

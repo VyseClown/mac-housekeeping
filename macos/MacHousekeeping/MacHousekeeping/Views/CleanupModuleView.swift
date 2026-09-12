@@ -4,35 +4,56 @@ struct CleanupModuleView: View {
     @ObservedObject var model: AppModel
     var snapshot: Snapshot
 
-    private var selected: Leftover? {
-        snapshot.leftovers.first(where: { $0.id == model.selectedLeftoverID }) ?? snapshot.leftovers.first
+    private var idleBytes: Int64 {
+        snapshot.leftovers.filter { $0.usage == .idle }.reduce(0) { $0 + $1.bytes }
+    }
+
+    private var heldBytes: Int64 {
+        snapshot.leftovers.filter { $0.usage == .inUse }.reduce(0) { $0 + $1.bytes }
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            if snapshot.leftovers.isEmpty {
-                EmptyStateView(
-                    title: "No leftovers mapped",
-                    detail: "Investigation folders that match the collector stay here. nightshift and ai-memory never appear."
-                )
-            } else {
-                list
-                Divider().background(Color.white.opacity(0.06))
-                if let leftover = selected {
-                    detail(leftover)
+        NavigationStack {
+            Group {
+                if snapshot.leftovers.isEmpty {
+                    EmptyStateView(
+                        title: "No leftovers mapped",
+                        detail: "Investigation folders that match the collector stay here. nightshift and ai-memory never appear."
+                    )
+                } else {
+                    list
                 }
             }
-        }
-        .onAppear {
-            if model.selectedLeftoverID == nil {
-                model.selectedLeftoverID = snapshot.leftovers.first?.id
+            .navigationTitle("Cleanup leftovers")
+            .navigationDestination(item: $model.selectedLeftoverID) { id in
+                if let leftover = snapshot.leftovers.first(where: { $0.id == id }) {
+                    leftoverDetail(leftover)
+                }
             }
         }
     }
 
     private var list: some View {
         ScrollView {
-            LazyVStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .center, spacing: 28) {
+                    SpaceRingView(
+                        idle: idleBytes,
+                        held: heldBytes,
+                        caption: "leftovers only"
+                    )
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Idle \(ByteFormat.string(idleBytes))")
+                            .foregroundStyle(Chrome.leftoversHue)
+                        Text("In use \(ByteFormat.string(heldBytes))")
+                            .foregroundStyle(Chrome.amber)
+                        Text("Media and worktrees stay on their own tabs.")
+                            .font(.caption)
+                            .foregroundStyle(Chrome.muted)
+                    }
+                    .font(.callout.weight(.semibold))
+                    Spacer()
+                }
                 ForEach(snapshot.leftovers) { leftover in
                     Button {
                         model.selectedLeftoverID = leftover.id
@@ -59,20 +80,20 @@ struct CleanupModuleView: View {
                                 }
                             }
                             Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(Chrome.faint)
                         }
                         .padding(12)
-                        .background(model.selectedLeftoverID == leftover.id ? Color.white.opacity(0.06) : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .housekeepingCard()
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(16)
+            .padding(22)
         }
-        .frame(minWidth: 380)
     }
 
-    private func detail(_ leftover: Leftover) -> some View {
+    private func leftoverDetail(_ leftover: Leftover) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text((leftover.path as NSString).lastPathComponent)
@@ -106,7 +127,9 @@ struct CleanupModuleView: View {
                 }
             }
             .padding(22)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(minWidth: 320)
+        .navigationTitle("Leftover")
+        .navigationBarBackButtonHidden(false)
     }
 }

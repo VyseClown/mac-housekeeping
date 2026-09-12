@@ -2,7 +2,7 @@
 
 Native SwiftUI app for Alessandro Gentil’s developer Mac. It maps leftovers, Desktop PR evidence, git worktrees, and holding processes. It is not a generic cleaner and not a wrapped web page.
 
-Open `macos/MacHousekeeping/MacHousekeeping.xcodeproj` on a Mac. The four modules are Cleanup leftovers, Media, Branches and worktrees, and Processes. An Overview ring sits in front of them. PulseNotch’s module split is not applied yet. That remap waits on the observed separation file.
+Open `macos/MacHousekeeping/MacHousekeeping.xcodeproj` on a Mac. The dashboard is four Pulse-style tabs. Cleanup, Media, Branches, and Processes. Shared topbar. Confirm overlays. Drill-in with Back. A compact notch companion shows scan status only. Office, achievements, ECG, and phone are not copied.
 
 `nightshift` and `ai-memory` stay off the cleanup lists. The app never deletes files, never kills a process, never runs `git worktree remove`, and never closes a simulator.
 

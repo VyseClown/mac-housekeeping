@@ -19,9 +19,8 @@
 		A1010000000000000000000A /* Chrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000A /* Chrome.swift */; };
 		A1010000000000000000000B /* SharedChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000B /* SharedChrome.swift */; };
 		A1010000000000000000000C /* SpaceRingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000C /* SpaceRingView.swift */; };
-		A1010000000000000000000D /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000D /* SidebarView.swift */; };
+		A1010000000000000000000D /* TabChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000D /* TabChrome.swift */; };
 		A1010000000000000000000E /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000E /* AppShellView.swift */; };
-		A1010000000000000000000F /* OverviewDashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2010000000000000000000F /* OverviewDashboard.swift */; };
 		A10100000000000000000010 /* ValidationPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000010 /* ValidationPanel.swift */; };
 		A10100000000000000000011 /* CleanupModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000011 /* CleanupModuleView.swift */; };
 		A10100000000000000000012 /* MediaModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20100000000000000000012 /* MediaModuleView.swift */; };
@@ -54,9 +53,8 @@
 		A2010000000000000000000A /* Chrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chrome.swift; sourceTree = "<group>"; };
 		A2010000000000000000000B /* SharedChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedChrome.swift; sourceTree = "<group>"; };
 		A2010000000000000000000C /* SpaceRingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceRingView.swift; sourceTree = "<group>"; };
-		A2010000000000000000000D /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		A2010000000000000000000D /* TabChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabChrome.swift; sourceTree = "<group>"; };
 		A2010000000000000000000E /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
-		A2010000000000000000000F /* OverviewDashboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewDashboard.swift; sourceTree = "<group>"; };
 		A20100000000000000000010 /* ValidationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidationPanel.swift; sourceTree = "<group>"; };
 		A20100000000000000000011 /* CleanupModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupModuleView.swift; sourceTree = "<group>"; };
 		A20100000000000000000012 /* MediaModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModuleView.swift; sourceTree = "<group>"; };
@@ -160,9 +158,8 @@
 			children = (
 				A2010000000000000000000B /* SharedChrome.swift */,
 				A2010000000000000000000C /* SpaceRingView.swift */,
-				A2010000000000000000000D /* SidebarView.swift */,
+				A2010000000000000000000D /* TabChrome.swift */,
 				A2010000000000000000000E /* AppShellView.swift */,
-				A2010000000000000000000F /* OverviewDashboard.swift */,
 				A20100000000000000000010 /* ValidationPanel.swift */,
 				A20100000000000000000011 /* CleanupModuleView.swift */,
 				A20100000000000000000012 /* MediaModuleView.swift */,
@@ -275,9 +272,8 @@
 				A1010000000000000000000A /* Chrome.swift in Sources */,
 				A1010000000000000000000B /* SharedChrome.swift in Sources */,
 				A1010000000000000000000C /* SpaceRingView.swift in Sources */,
-				A1010000000000000000000D /* SidebarView.swift in Sources */,
+				A1010000000000000000000D /* TabChrome.swift in Sources */,
 				A1010000000000000000000E /* AppShellView.swift in Sources */,
-				A1010000000000000000000F /* OverviewDashboard.swift in Sources */,
 				A10100000000000000000010 /* ValidationPanel.swift in Sources */,
 				A10100000000000000000011 /* CleanupModuleView.swift in Sources */,
 				A10100000000000000000012 /* MediaModuleView.swift in Sources */,

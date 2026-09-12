@@ -4,82 +4,79 @@ struct ProcessModuleView: View {
     @ObservedObject var model: AppModel
     var snapshot: Snapshot
 
-    private var selected: MappedProcess? {
-        snapshot.processes.first(where: { $0.pid == model.selectedProcessID }) ?? snapshot.processes.first
+    var body: some View {
+        NavigationStack {
+            list
+                .navigationTitle("Processes")
+                .navigationDestination(item: $model.selectedProcessID) { pid in
+                    if let process = snapshot.processes.first(where: { $0.pid == pid }) {
+                        detail(process)
+                    }
+                }
+        }
     }
 
-    var body: some View {
-        HStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Xcode Simulators")
-                        .font(.headline)
-                        .foregroundStyle(Chrome.text)
-                    ForEach(snapshot.simulators) { device in
+    private var list: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Xcode Simulators")
+                    .font(.headline)
+                    .foregroundStyle(Chrome.text)
+                ForEach(snapshot.simulators) { device in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(device.name)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Chrome.text)
+                            Text("\(device.runtime) · \(device.state.rawValue)")
+                                .font(.caption)
+                                .foregroundStyle(Chrome.muted)
+                            Text(device.note)
+                                .font(.caption2)
+                                .foregroundStyle(Chrome.faint)
+                        }
+                        Spacer()
+                        Button("Close") {}
+                            .disabled(true)
+                            .buttonStyle(QuietButtonStyle())
+                            .opacity(0.45)
+                    }
+                    .padding(12)
+                    .housekeepingCard()
+                }
+
+                Text("Processes")
+                    .font(.headline)
+                    .foregroundStyle(Chrome.text)
+                    .padding(.top, 8)
+                ForEach(snapshot.processes) { process in
+                    Button {
+                        model.selectedProcessID = process.pid
+                    } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(device.name)
+                                Text(process.name)
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(Chrome.text)
-                                Text("\(device.runtime) · \(device.state.rawValue)")
+                                Text("PID \(process.pid) · parent \(process.parentName)")
                                     .font(.caption)
                                     .foregroundStyle(Chrome.muted)
-                                Text(device.note)
-                                    .font(.caption2)
-                                    .foregroundStyle(Chrome.faint)
                             }
                             Spacer()
-                            Button("Close") {}
-                                .disabled(true)
-                                .buttonStyle(QuietButtonStyle())
-                                .opacity(0.45)
+                            Text(String(format: "%.1f cpu", process.cpu))
+                                .font(.caption)
+                                .foregroundStyle(Chrome.faint)
+                            UsageBadge(usage: process.usage)
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(Chrome.faint)
                         }
                         .padding(12)
                         .housekeepingCard()
                     }
-
-                    Text("Processes")
-                        .font(.headline)
-                        .foregroundStyle(Chrome.text)
-                        .padding(.top, 8)
-                    ForEach(snapshot.processes) { process in
-                        Button {
-                            model.selectedProcessID = process.pid
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(process.name)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(Chrome.text)
-                                    Text("PID \(process.pid) · parent \(process.parentName)")
-                                        .font(.caption)
-                                        .foregroundStyle(Chrome.muted)
-                                }
-                                Spacer()
-                                Text(String(format: "%.1f cpu", process.cpu))
-                                    .font(.caption)
-                                    .foregroundStyle(Chrome.faint)
-                                UsageBadge(usage: process.usage)
-                            }
-                            .padding(10)
-                            .background(model.selectedProcessID == process.pid ? Color.white.opacity(0.06) : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    .buttonStyle(.plain)
                 }
-                .padding(16)
             }
-            .frame(minWidth: 420)
-            Divider().background(Color.white.opacity(0.06))
-            if let process = selected {
-                detail(process)
-            }
-        }
-        .onAppear {
-            if model.selectedProcessID == nil {
-                model.selectedProcessID = snapshot.processes.first?.pid
-            }
+            .padding(22)
         }
     }
 
@@ -135,8 +132,9 @@ struct ProcessModuleView: View {
                         .foregroundStyle(Chrome.amber)
                 }
             }
-            .padding(20)
+            .padding(22)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(minWidth: 320)
+        .navigationTitle("Process")
     }
 }

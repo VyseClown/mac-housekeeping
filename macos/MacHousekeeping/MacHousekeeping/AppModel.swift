@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 final class AppModel: ObservableObject {
     @Published var loadState: LoadState = .idle
-    @Published var module: HousekeepingModule = .overview
+    @Published var module: HousekeepingModule = .leftovers
     @Published var selectedLeftoverID: String?
     @Published var selectedMediaID: String?
     @Published var selectedWorkspaceID: String?
@@ -27,8 +27,12 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func reviewLeftovers() {
-        module = .leftovers
+    func show(_ next: HousekeepingModule) {
+        module = next
+        selectedLeftoverID = nil
+        selectedMediaID = nil
+        selectedWorkspaceID = nil
+        selectedProcessID = nil
     }
 
     func askDeleteLeftover(_ leftover: Leftover) {

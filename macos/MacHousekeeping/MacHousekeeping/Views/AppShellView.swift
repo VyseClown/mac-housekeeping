@@ -4,47 +4,43 @@ struct AppShellView: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        HStack(spacing: 0) {
-            SidebarView(model: model)
-            Divider().background(Color.white.opacity(0.06))
-            VStack(spacing: 0) {
-                topBar
-                if let banner = model.banner {
-                    Text(banner)
-                        .font(.caption)
-                        .foregroundStyle(Chrome.amber)
-                        .padding(.horizontal, 22)
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Chrome.amber.opacity(0.08))
-                }
-                content
+        VStack(spacing: 0) {
+            topBar
+            if let banner = model.banner {
+                Text(banner)
+                    .font(.caption)
+                    .foregroundStyle(Chrome.amber)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Chrome.amber.opacity(0.08))
             }
-            .background(Chrome.background)
+            content
         }
+        .background(Chrome.background)
         .sheet(item: $model.pendingConfirm) { intent in
             ConfirmSheet(model: model, intent: intent)
         }
     }
 
     private var topBar: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(model.module.title)
-                    .font(.title2.weight(.semibold))
+        HStack(spacing: 16) {
+            HStack(spacing: 8) {
+                Image(systemName: "internaldrive.fill")
+                    .foregroundStyle(Chrome.accent)
+                Text("Housekeeping")
+                    .font(.headline)
                     .foregroundStyle(Chrome.text)
-                if let snapshot = model.snapshot {
-                    Text("\(snapshot.host.user) · \(snapshot.host.hostname)")
-                        .font(.caption)
-                        .foregroundStyle(Chrome.muted)
-                }
             }
+            TabChrome(model: model)
             Spacer()
+            NotchCompanion(snapshot: model.snapshot)
             Button("Scan leftovers") { model.scan() }
                 .buttonStyle(PrimaryButtonStyle())
         }
         .padding(.horizontal, 22)
-        .padding(.vertical, 16)
+        .padding(.vertical, 14)
+        .background(Chrome.sidebar)
     }
 
     @ViewBuilder
@@ -56,8 +52,6 @@ struct AppShellView: View {
             FailedStateView(message: message, retry: model.scan)
         case .ready(let snapshot):
             switch model.module {
-            case .overview:
-                OverviewDashboard(model: model, snapshot: snapshot)
             case .leftovers:
                 CleanupModuleView(model: model, snapshot: snapshot)
             case .media:
